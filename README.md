@@ -121,8 +121,8 @@ Front-End**. That project was built as a collaborative university project
 - **Shlomi Hazan** ([@Shlomi-Hazan](https://github.com/Shlomi-Hazan)), co-developer
 - **Eldad Simanian** ([@eldadsimanian](https://github.com/eldadsimanian)), co-developer
 
-Both contributed equally to the original project. Its full Git history and
-authorship are kept in this repository. The original repository,
+Both are credited as co-developers of the original project. Its full Git
+history and authorship are kept in this repository. The original repository,
 [`Shlomi-Hazan/cost-manager-front-end`](https://github.com/Shlomi-Hazan/cost-manager-front-end),
 remains unchanged as the record of the course submission.
 

@@ -2,7 +2,9 @@
 
 This folder keeps the documentation from the original university project,
 **Cost Manager Front-End**. Shlomi Hazan and Eldad Simanian built it together
-as equal contributors for a Front-End Development course in August–September 2026.
+as co-developers for a Front-End Development course in August–September 2026.
+Statements inside the archived files about how the team divided its work were
+written by the team at the time and are kept unchanged as history.
 
 Cost Manager Pro is an independent continuation of that project. The files
 here are kept for history and attribution. **They do not set rules for
