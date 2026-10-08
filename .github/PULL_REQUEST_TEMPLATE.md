@@ -1,47 +1,40 @@
 ## Summary
 
-<!-- Briefly explain what this PR changes. -->
+<!-- What changed and why. -->
 
-## Related Issue
+## Scope
 
-Closes #
+- Milestone / task:
+- Out of scope (deliberately not done):
 
 ## Requirements
 
-<!-- List relevant requirement IDs from docs/REQUIREMENTS.md. -->
+<!-- IDs from docs/REQUIREMENTS.md, e.g. DATA-2, CUR-6. -->
 
-- R-
+-
 
-## Changed
+## Data Impact
 
-- 
+- [ ] No change to stored data or storage keys
+- [ ] Schema/storage change: migration described and tested below
 
 ## Validation
 
-- [ ] Relevant tests added/updated
+<!-- Exact commands and results. Do not tick what was not run. -->
+
 - [ ] `npm run lint`
 - [ ] `npm test`
 - [ ] `npm run build`
-- [ ] Manual Chrome check, if applicable
-- [ ] Vanilla `db.js` HTML compatibility test, if applicable
-
-## Architecture / Documentation
-
-- [ ] No architecture change
-- [ ] Architecture/decision docs updated if required
-- [ ] Requirements docs updated if official clarification changed behavior
-
-## Scope Check
-
-- [ ] No unrelated refactoring
-- [ ] Protected `db.js` API remains compatible
-- [ ] Required currency identifiers remain `USD`, `ILS`, `GBP`, `EURO`
-- [ ] No secrets or credentials added
+- [ ] Tests added/updated for changed behavior
+- [ ] Browser check at mobile width (≈360 px), if UI changed
+- [ ] Browser check at desktop width, if UI changed
+- [ ] Checked in `en` (LTR) and `he` (RTL), once localization exists
+- [ ] Accessibility considered (labels, keyboard, focus, contrast)
 
 ## Screenshots
 
-<!-- Add screenshots for meaningful UI changes when useful. -->
+<!-- Before/after for UI changes, mobile and desktop. -->
 
-## Notes / Open Questions
+## Risks, Limitations, Deferred Items
 
-<!-- Mention assumptions, unresolved requirements, or follow-up work. -->
+<!-- What was not verified, known limitations, follow-ups. -->

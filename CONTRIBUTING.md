@@ -1,243 +1,126 @@
-# Contributing — Cost Manager Front-End
+# Contributing to Cost Manager Pro
 
-This project is developed as a two-person university team project with Git/GitHub used to preserve a clear collaboration history.
+This is the engineering workflow for people and AI coding agents. The rules
+that come first (scope, safety, financial correctness) are in
+[`AGENTS.md`](AGENTS.md).
 
----
-
-# 1. Basic Workflow
-
-For meaningful work:
+## Workflow
 
 ```text
-Requirement / Task
-       ↓
-GitHub Issue
-       ↓
-Branch
-       ↓
-Implementation
-       ↓
-Tests / Lint / Build
-       ↓
-Pull Request
-       ↓
-Review
-       ↓
-Merge to main
+Approved milestone / task  →  Issue (optional for small docs fixes)
+  →  branch  →  focused commits  →  lint + tests + build (+ browser check for UI)
+  →  pull request (draft until verified)  →  review  →  merge by the product owner
 ```
 
-Do not develop features directly on `main`.
+- Work happens on a branch, never directly on `main`.
+- One milestone or task per branch. Don't mix unrelated changes.
+- Never force-push shared branches or rewrite `main` history.
 
----
+## Branches
 
-# 2. Before Starting Work
-
-Read:
-
-1. `intent.txt`
-2. `docs/REQUIREMENTS.md`
-3. `docs/ARCHITECTURE.md`
-4. relevant GitHub Issue
-5. `AGENTS.md` when using Codex
-6. `CLAUDE.md` when using Claude Code
-
-Check:
-
-```bash
-git status
-git branch --show-current
-```
-
-Start from an updated `main`.
-
----
-
-# 3. Branch Naming
-
-Use:
+Use lowercase kebab-case with a type prefix:
 
 ```text
-docs/<topic>
-feature/<topic>
-fix/<topic>
-test/<topic>
-chore/<topic>
+feat/<topic>       new behavior          feat/expense-search
+fix/<topic>        bug fix               fix/corrupted-storage-recovery
+refactor/<topic>   no behavior change    refactor/shared-period-filter
+test/<topic>       tests only            test/rtl-formatting
+docs/<topic>       documentation only    docs/localization-contract
+chore/<topic>      tooling, governance   chore/m0-project-governance
 ```
 
-Examples:
+## Commits
 
-```text
-docs/project-foundation
-feature/add-cost
-feature/monthly-report
-fix/currency-conversion
-test/db-contract
-chore/deployment
-```
+Use [Conventional Commits](https://www.conventionalcommits.org/) prefixes:
+`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`, `style:`, `perf:`,
+`ci:`, `build:`.
 
-Use lowercase kebab-case.
+- One understandable change per commit. Say *what* in the title and *why*
+  in the body when it isn't obvious.
+- Avoid messages such as `update`, `changes`, or `final`.
+- Keep commits that only move files separate from commits that edit them,
+  so Git can track renames.
 
----
+## Pull requests
 
-# 4. Commit Messages
+A PR should be small enough to review in one sitting. The description
+covers:
 
-Use focused commit messages.
+- **Summary:** what changed and why.
+- **Scope:** the milestone or task; what was deliberately left out.
+- **Requirements:** the IDs from [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) it affects.
+- **Data impact:** schema or storage changes, and the migration plan.
+- **Validation:** exact commands and results; browser checks (widths, and
+  later languages and directions); screenshots for UI.
+- **Risks, limitations, and deferred items.**
 
-Preferred prefixes:
+Open the PR as a **draft** until verification is complete.
 
-```text
-chore:
-docs:
-feat:
-fix:
-test:
-refactor:
-style:
-```
+## Code review
 
-Examples:
+Reviews check these, in this order:
 
-```text
-chore: initialize Cost Manager project
-docs: add project architecture
-feat: implement add cost form
-fix: preserve original cost currency
-test: add getReport contract coverage
-```
+1. data safety and financial correctness
+2. behavior regressions
+3. scope
+4. tests
+5. accessibility, mobile, and RTL readiness
+6. architecture boundaries
+7. maintainability
+8. visual polish
 
-Avoid:
+Group findings as Blocking, Important, or Optional. Blocking findings must
+be fixed before merge. The product owner merges.
 
-```text
-update
-changes
-final
-stuff
-fix everything
-project done
-```
+## Testing
 
----
+- `npm run lint`, `npm test`, and `npm run build` must pass.
+- Behavior changes and bug fixes need tests: unit tests for logic,
+  component tests for UI. A bug fix starts with a test that reproduces the
+  bug.
+- Changes to storage need tests for existing data, damaged data, and
+  migrations.
+- UI changes need a manual browser check at mobile and desktop widths. Once
+  localization exists, check in both `en` (LTR) and `he` (RTL).
+- Never delete, weaken, or skip a test to get a change through.
+- End-to-end and accessibility tests will be added in M7. Until then, say
+  what was checked by hand.
 
-# 5. Commit Scope
+## Documentation
 
-A commit should represent one understandable change.
+Update the document that owns the topic (see the table in
+[ADR-040](docs/DECISIONS.md#adr-040--agentsmd-is-the-single-source-of-truth-for-coding-agents)):
 
-Prefer:
+- requirement status → `docs/REQUIREMENTS.md`
+- milestone status → `docs/ROADMAP.md`
+- decisions → `docs/DECISIONS.md`
+- structure → `docs/ARCHITECTURE.md`
 
-```text
-feat: implement addCost persistence
-test: cover addCost persistence
-```
+Don't copy the same rules into several files.
 
-over one huge commit containing unrelated features, formatting, refactoring, and documentation.
+## Definition of Done
 
----
+A task is done only when:
 
-# 6. Pull Requests
+- [ ] The authorized scope is implemented, and nothing else.
+- [ ] Existing behavior is kept unless the change was authorized.
+- [ ] Stored user data is safe, with a migration if the schema changed.
+- [ ] Tests were added or updated, and lint, tests, and build pass.
+- [ ] UI changes were checked in a browser at mobile and desktop widths
+      (and both directions once localization exists).
+- [ ] Accessibility was considered: labels, keyboard, focus, contrast.
+- [ ] Documentation and requirement statuses are updated.
+- [ ] The PR states what was verified and what wasn't.
 
-A Pull Request should:
+## Milestone boundaries
 
-- explain what changed,
-- reference the GitHub Issue,
-- list relevant requirement IDs,
-- list validation performed,
-- identify unresolved questions.
+Milestones are listed in [`docs/ROADMAP.md`](docs/ROADMAP.md). A milestone
+starts only with the product owner's explicit authorization. Its scope and
+acceptance criteria are confirmed before work begins. Work found along the
+way that belongs to a later milestone is recorded there, not done early.
 
-Do not mix unrelated work.
+## Attribution
 
----
-
-# 7. Review Expectations
-
-Review for:
-
-1. official requirement compliance,
-2. protected `db.js` API compatibility,
-3. correctness,
-4. tests,
-5. architecture boundaries,
-6. maintainability,
-7. UI/UX.
-
-Required fixes should be completed before merge.
-
----
-
-# 8. Validation
-
-When project scripts exist, run:
-
-```bash
-npm run lint
-npm test
-npm run build
-```
-
-For Vanilla `db.js` changes, also run the standalone HTML compatibility test in Chrome.
-
-Do not claim a check passed unless it was actually run.
-
----
-
-# 9. AI-Assisted Development
-
-Codex is the primary coding agent.
-
-Claude Code may be used for:
-
-- review,
-- debugging,
-- architecture checks,
-- second opinions,
-- selected implementation work.
-
-Do not have two agents edit the same branch independently at the same time.
-
-All AI-generated work must still be reviewed and tested.
-
----
-
-# 10. Protected Rules
-
-Do not casually change:
-
-```text
-db.openCostsDB(...)
-ob.addCost(...)
-ob.getReport(...)
-USD / ILS / GBP / EURO
-localStorage requirement
-Fetch requirement
-Vanilla global db behavior
-```
-
-When a course requirement is ambiguous, record it instead of guessing.
-
----
-
-# 11. Main Branch
-
-`main` should represent reviewed, working code.
-
-Avoid:
-
-- direct feature commits to `main`,
-- force-pushing `main`,
-- merging failing builds,
-- merging knowingly broken grader compatibility.
-
----
-
-# 12. Collaboration Evidence
-
-Preserve useful evidence throughout the project:
-
-- Issues,
-- assignments,
-- branches,
-- commits,
-- Pull Requests,
-- reviews,
-- comments.
-
-This supports both project management and the course teamwork requirement.
+Cost Manager Pro began as *Cost Manager Front-End*, a university project
+built together by Shlomi Hazan and Eldad Simanian. Their Git history and
+authorship are kept. Never rewrite history or remove credit.
