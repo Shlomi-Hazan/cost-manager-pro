@@ -1,10 +1,10 @@
-# Cost Manager Front-End — Architecture Decisions
+# Cost Manager Pro — Architecture Decisions
 
-> **Purpose:** Record important project decisions so that Codex, Claude Code, and human contributors do not repeatedly reopen settled architectural choices without a real reason.
+> **Purpose:** Record important decisions so that contributors and AI coding agents do not reopen settled choices without a real reason.
 >
-> This file records **project decisions**, not official course requirements.
+> **History:** ADR-001 to ADR-036 were written for the original university project, *Cost Manager Front-End*. They are kept unchanged as history. In M0 (2026-10-08), some were marked `SUPERSEDED`, and others got an **M0 review** note where their course-based reason no longer applies. ADR-037 onward are Cost Manager Pro decisions.
 >
-> Official requirements remain defined in `docs/REQUIREMENTS.md`.
+> Product requirements are in [`REQUIREMENTS.md`](REQUIREMENTS.md). The course requirements cited by older ADRs (`R-*`, `OQ-*`) are in [`archive/course/REQUIREMENTS.md`](archive/course/REQUIREMENTS.md).
 
 ---
 
@@ -34,6 +34,8 @@ REJECTED
 ```
 
 A decision marked `PROVISIONAL` is intentionally not fully locked because an official clarification or implementation experiment is still required.
+
+An **M0 review** note on an `ACCEPTED` or `PROVISIONAL` decision means: it still describes the current implementation, but its course-based reason was retired by ADR-037. It stays in force until a later decision changes it in the named milestone.
 
 ---
 
@@ -132,6 +134,8 @@ It avoids unnecessary framework complexity.
 
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
+
+> **M0 review (2026-10-08):** The course reason is retired. TypeScript is still not planned; adopting it requires a new ADR (ADR-037).
 
 ## Decision
 
@@ -250,7 +254,7 @@ If Recharts cannot satisfy a mandatory requirement or causes deployment/browser 
 
 # ADR-006 — Use localStorage as the Required Persistence Layer
 
-**Status:** ACCEPTED  
+**Status:** SUPERSEDED by ADR-041 (M0, 2026-10-08)  
 **Date:** 2026-08-22
 
 ## Decision
@@ -285,7 +289,7 @@ Additional temporary in-memory state is allowed, but localStorage remains the pe
 
 # ADR-007 — Maintain Two `db.js` Forms
 
-**Status:** ACCEPTED  
+**Status:** SUPERSEDED by ADR-037 (M0, 2026-10-08)  
 **Date:** 2026-08-22
 
 ## Decision
@@ -324,7 +328,7 @@ Logic drift between versions must be prevented through contract tests.
 
 # ADR-008 — Protect the Official `db.js` API
 
-**Status:** ACCEPTED  
+**Status:** SUPERSEDED by ADR-037 (M0, 2026-10-08)  
 **Date:** 2026-08-22
 
 ## Decision
@@ -387,6 +391,8 @@ Only if shared state becomes genuinely difficult to manage with ordinary React p
 
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
+
+> **M0 review (2026-10-08):** The course reason is retired. URL routing will be reconsidered in M3 under its own ADR (ADR-037).
 
 ## Decision
 
@@ -453,6 +459,8 @@ Pages should call functions/services rather than reproduce algorithms.
 
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
+
+> **M0 review (2026-10-08):** Keeping one shared list of currency IDs is still accepted. The non-ISO `EURO` ID and the fixed set of four currencies will be reconsidered in M2, with a data migration (ADR-037).
 
 ## Decision
 
@@ -553,7 +561,7 @@ Keep changes scoped.
 
 # ADR-015 — Codex Is the Primary Coding Agent
 
-**Status:** ACCEPTED  
+**Status:** SUPERSEDED by ADR-040 (M0, 2026-10-08)  
 **Date:** 2026-08-22
 
 ## Decision
@@ -635,6 +643,8 @@ ESLint configuration should remain practical and not become a project unto itsel
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
 
+> **M0 review (2026-10-08):** The course reason (team-hosted rates) is retired. The current rates are fixed sample values; a real rates source is planned for M2 (ADR-037).
+
 ## Decision
 
 Provide a default Internet-accessible static exchange-rate JSON source controlled/deployed by the project team.
@@ -660,6 +670,8 @@ The final hosting location will be decided during the exchange-rate/deployment m
 
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
+
+> **M0 review (2026-10-08):** Still in force. The custom URL setting may be redesigned when real rates arrive in M2.
 
 ## Decision
 
@@ -693,6 +705,8 @@ use default URL
 
 **Status:** PROVISIONAL  
 **Date:** 2026-08-22
+
+> **M0 review (2026-10-08):** Still in force. The cache exists because `getReport()` must be synchronous, a course rule now retired; it will be reconsidered in M2 (ADR-037).
 
 ## Decision
 
@@ -740,6 +754,8 @@ During the `db.js` + exchange-rate design milestone or after course clarificatio
 **Status:** PROVISIONAL  
 **Date:** 2026-08-22
 
+> **M0 review (2026-10-08):** Superseded in practice by ADR-031 (hour/minute added). The rules for time zones and which calendar day an expense falls on will be defined in M2.
+
 ## Decision
 
 Proposed internal stored date structure:
@@ -783,6 +799,8 @@ Before finalizing `getReport()` output.
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
 
+> **M0 review (2026-10-08):** The course reason is retired. Category management is planned for M4.
+
 ## Decision
 
 Do not make the core `db.js` API depend on a closed predefined category list.
@@ -805,6 +823,8 @@ The UI may later provide convenient choices, but core required behavior must rem
 
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
+
+> **M0 review (2026-10-08):** The course reason (never reject the grader's input) is retired. Product validation rules are planned for M2.
 
 ## Decision
 
@@ -871,6 +891,8 @@ Manual Vanilla/Chrome tests still remain necessary.
 **Status:** ACCEPTED  
 **Date:** 2026-08-22
 
+> **M0 review (2026-10-08):** Still in force. The hosting provider will be chosen in M1.
+
 ## Decision
 
 Deploy the main application as a static front-end build.
@@ -917,7 +939,7 @@ The required exchange-rate source can be a static JSON file.
 
 # ADR-027 — Documentation Has Separate Sources of Responsibility
 
-**Status:** ACCEPTED  
+**Status:** SUPERSEDED by ADR-040 (M0, 2026-10-08)  
 **Date:** 2026-08-22
 
 ## Decision
@@ -963,7 +985,7 @@ Update the appropriate source document instead of copying changes everywhere.
 
 # ADR-028 — Requirement Compliance Beats Visual Complexity
 
-**Status:** ACCEPTED  
+**Status:** SUPERSEDED by ADR-037 (M0, 2026-10-08)  
 **Date:** 2026-08-22
 
 ## Decision
@@ -999,6 +1021,8 @@ optional enhancements
 **Status:** ACCEPTED
 
 **Date:** 2026-08-24
+
+> **M0 review (2026-10-08):** Still in force. Existing version 2 data must stay readable; the migration framework is planned for M1.
 
 ## Decision
 
@@ -1287,6 +1311,188 @@ compatibility boundary.
 
 ---
 
+# ADR-037 — Cost Manager Pro Is an Independent Product; Course Mandates Are Retired
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-08
+
+## Decision
+
+Cost Manager Pro is an independent continuation of the university project
+*Cost Manager Front-End*. Course requirements, grader compatibility, and
+submission rules no longer govern development.
+
+Every course-derived constraint has been classified as **Retain**,
+**Retire**, or **Reevaluate** in
+[`archive/course/README.md`](archive/course/README.md#course-constraint-classification-m0).
+
+## Context
+
+The original project was built to satisfy a graded course specification:
+synchronous `ob.getReport()`, a standalone Vanilla `db.js` with a global
+`db`, the `EURO` identifier, an English-only UI, Chrome-only testing,
+comment-density and JSDoc rules, and Moodle packaging. The product now has
+its own vision ([`VISION.md`](VISION.md)).
+
+## Consequences
+
+- ADR-007, ADR-008, and ADR-028 are superseded.
+- ADRs whose only reason was the course carry an **M0 review** note naming
+  the milestone that will reconsider them.
+- **Retiring a rule does not change behavior.** The code that satisfies a
+  retired rule stays as it is until a milestone changes it on purpose, with
+  tests and, if stored data is affected, a migration.
+- `vanilla/db.js` and its tests are kept frozen. New features do not need to
+  be copied into it.
+- Course documents are archived, unchanged apart from banners, under
+  `docs/archive/course/`.
+- Git history and credit for both original contributors (Shlomi Hazan,
+  Eldad Simanian) are kept.
+
+---
+
+# ADR-038 — English and Hebrew Are Both Required in v1
+
+**Status:** ACCEPTED (requirement; not implemented)  
+**Date:** 2026-10-08
+
+## Decision
+
+Version 1 supports English (`en`, LTR) and Hebrew (`he`, RTL) at equal
+quality. This includes:
+
+- a full right-to-left layout
+- correct mixed-direction display of financial values
+- dates, numbers, and money formatted for each language
+- an easy-to-find, accessible language switch
+
+The detailed contract is [`LOCALIZATION.md`](LOCALIZATION.md).
+
+## Context
+
+This supersedes the course's English-only UI requirement (archived R-011).
+
+## Alternatives
+
+- English only, adding Hebrew later. Rejected: adding RTL late is much more
+  expensive than building for it from the start.
+
+## Consequences
+
+- From M3 on, user-facing strings must come from translation catalogs.
+- Layout code must use logical CSS properties.
+- Meaningful UI changes must be checked in the browser in both directions.
+- **No i18n library has been chosen.** The choice needs its own ADR in M3.
+- M0 implements none of this.
+
+---
+
+# ADR-039 — Desktop and Mobile Have Equal Priority
+
+**Status:** ACCEPTED (requirement; partly met)  
+**Date:** 2026-10-08
+
+## Decision
+
+Every user flow must be fully usable and polished on mobile (360 px wide
+and up, touch input) and on desktop. Neither is secondary.
+
+## Context
+
+The course only required compatibility with desktop browsers (archived
+R-101). The M0 audit found that main navigation and the expense list don't
+work well on phones.
+
+## Consequences
+
+- Designs and acceptance criteria name both form factors.
+- UI changes are checked at mobile and desktop widths before they are
+  called done.
+
+---
+
+# ADR-040 — AGENTS.md Is the Single Source of Truth for Coding Agents
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-08
+
+## Decision
+
+- [`AGENTS.md`](../AGENTS.md) holds the operating rules for every AI coding
+  agent (Codex, Claude Code, and others) and for human contributors.
+- `CLAUDE.md` imports `AGENTS.md` and adds only Claude-specific notes.
+- No agent is "primary". The product owner assigns work.
+- The workflow details are in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
+
+The document responsibilities are:
+
+| Document | Responsibility |
+|---|---|
+| `AGENTS.md` | Agent and contributor rules (normative) |
+| `CONTRIBUTING.md` | Workflow, conventions, Definition of Done |
+| `docs/VISION.md` | Why the product exists, its principles and boundaries |
+| `docs/REQUIREMENTS.md` | What exists, what is approved, what is optional |
+| `docs/LOCALIZATION.md` | English/Hebrew and RTL contract |
+| `docs/ROADMAP.md` | Milestones and their status |
+| `docs/ARCHITECTURE.md` | Current architecture and direction |
+| `docs/DECISIONS.md` | Why major choices were made |
+| `README.md` | Human-facing overview |
+| `docs/archive/course/` | Historical only; not normative |
+
+## Context
+
+This supersedes ADR-015 (Codex is primary) and ADR-027 (the course-era
+document map). The old `AGENTS.md` and `CLAUDE.md` repeated about 600 lines
+each of course rules, and some of those rules conflicted (for example, on
+JSDoc).
+
+## Consequences
+
+- When a rule changes, it is changed in one place.
+- Agent-specific files stay short.
+
+---
+
+# ADR-041 — Local-First Initial Scope
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-08
+
+## Decision
+
+Cost Manager Pro starts **local-first**: all data stays in the user's
+browser. `localStorage` remains the current storage engine. The initial
+scope does not include:
+
+- authentication or accounts
+- a backend
+- cloud sync
+- bank integrations
+
+## Context
+
+This supersedes ADR-006, where `localStorage` was mandatory because of a
+course requirement. The product principle "Privacy by Design" now drives
+the local-first choice.
+
+## Alternatives
+
+- **IndexedDB:** a possible future engine for larger data sets; would need
+  its own ADR (M1 or later).
+- **Backend with sync:** out of the initial scope.
+
+## Consequences
+
+- Protecting user data is the app's own job:
+  - never overwrite unreadable data
+  - versioned migrations
+  - backup and restore
+  - (all planned for M1)
+- Changing the storage engine requires an ADR and a tested migration.
+- None of these options is permanently ruled out.
+
+---
+
 # 2. Open Decisions
 
 The following decisions remain intentionally unresolved.
@@ -1329,6 +1535,8 @@ Must satisfy official Fetch/web-hosting requirements.
 
 ## OD-003 — Final `getReport()` + Fetch Integration
 
+> **M0 review:** no longer blocked by the course. To be revisited in M2 (ADR-037).
+
 Blocked/provisional because of `OQ-003`.
 
 Do not make the official grading API incompatible before this is resolved.
@@ -1336,6 +1544,8 @@ Do not make the official grading API incompatible before this is resolved.
 ---
 
 ## OD-004 — Exact Report Item Currency Conversion Semantics
+
+> **M0 review:** the external (grader) contract is retired; this is now an internal design choice for M2 (ADR-037).
 
 Blocked by `OQ-001`.
 
@@ -1345,9 +1555,30 @@ Do not lock tests or UI assumptions until resolved.
 
 ## OD-005 — Exact External Date Shape
 
+> **M0 review:** the external (grader) contract is retired; this is now an internal design choice for M2 (ADR-037).
+
 Blocked by `OQ-002`.
 
 Internal storage may need day/month/year, but externally returned report shape must remain course-compatible.
+
+---
+
+## Open decisions added in M0
+
+The product owner decides each of these, recorded as an ADR in the named
+milestone:
+
+| ID | Decision | Milestone |
+|---|---|---|
+| OD-006 | Hosting provider for the live demo and how its storage stays separate from the original app | M1 |
+| OD-007 | What happens to `vanilla/db.js` and its tests (keep frozen or archive) | M1 or M7 |
+| OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | M2 |
+| OD-009 | Migration from `EURO` to ISO `EUR`, and expanding the currency list | M2 |
+| OD-010 | Rounding policy and the rule for which calendar day an expense falls on | M2 |
+| OD-011 | i18n library (or `Intl` with an in-house catalog) | M3 |
+| OD-012 | URL routing approach | M3 |
+| OD-013 | Storage engine (`localStorage` or IndexedDB) for larger data sets | M1 or later |
+| OD-014 | TypeScript adoption | Not scheduled |
 
 ---
 
@@ -1360,7 +1591,7 @@ For a meaningful change:
 1. Identify the ADR.
 2. Explain why the existing choice is insufficient.
 3. Compare alternatives.
-4. Verify course compatibility.
+4. Verify compatibility with existing user data and behavior (plan a migration if needed).
 5. Update this file.
 6. Mark old decision `SUPERSEDED` if necessary.
 7. Update architecture/tests.
