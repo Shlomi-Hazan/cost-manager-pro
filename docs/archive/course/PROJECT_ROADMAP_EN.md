@@ -1,5 +1,7 @@
 # Cost Manager Front-End — Complete Milestone Plan
 
+> **ARCHIVED — HISTORICAL, NOT NORMATIVE.** This document belongs to the original university project *Cost Manager Front-End* (Shlomi Hazan and Eldad Simanian). It no longer governs Cost Manager Pro. See [the archive index](README.md) for how its requirements were classified, and [`AGENTS.md`](../../../AGENTS.md) for the rules that apply today.
+
 > Working roadmap for the **Front-End Development Final Project**.  
 > This document defines the project lifecycle from initial setup to final submission, including Git/GitHub workflow, Codex and Claude Code usage, testing, documentation, deployment, auditing, and submission preparation.
 

@@ -1,5 +1,7 @@
 # START HERE — GitHub Bootstrap
 
+> **ARCHIVED — HISTORICAL, NOT NORMATIVE.** This document belongs to the original university project *Cost Manager Front-End* (Shlomi Hazan and Eldad Simanian). It no longer governs Cost Manager Pro. See [the archive index](README.md) for how its requirements were classified, and [`AGENTS.md`](../../../AGENTS.md) for the rules that apply today.
+
 Repository name selected for this project:
 
 ```text

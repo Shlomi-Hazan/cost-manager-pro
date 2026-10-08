@@ -1,3 +1,7 @@
+ARCHIVED — HISTORICAL, NOT NORMATIVE.
+This was the intent statement of the original university project.
+It no longer governs Cost Manager Pro; see docs/VISION.md and AGENTS.md.
+
 PROJECT: Cost Manager Front-End
 COURSE: Front-End Development Final Project
 

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ARCHIVED (Cost Manager Pro M0): historical bootstrap script for the ORIGINAL
+# course repository Shlomi-Hazan/cost-manager-front-end. Running it would create
+# or modify that repository, so it must not be run. This guard stops execution.
+echo "Archived script: not for use with Cost Manager Pro." >&2
+exit 1
+
 OWNER="Shlomi-Hazan"
 REPO_NAME="cost-manager-front-end"
 REPO="$OWNER/$REPO_NAME"

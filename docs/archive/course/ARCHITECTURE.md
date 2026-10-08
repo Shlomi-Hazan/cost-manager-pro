@@ -1,5 +1,7 @@
 # Cost Manager Front-End — Architecture
 
+> **ARCHIVED — HISTORICAL, NOT NORMATIVE.** This document belongs to the original university project *Cost Manager Front-End* (Shlomi Hazan and Eldad Simanian). It no longer governs Cost Manager Pro. See [the archive index](README.md) for how its requirements were classified, and [`AGENTS.md`](../../../AGENTS.md) for the rules that apply today.
+
 > **Document purpose:** Define how the project should be structured and how its major parts interact.
 >
 > **Official requirement source:** the course project specification, represented in this repository by `docs/REQUIREMENTS.md`.

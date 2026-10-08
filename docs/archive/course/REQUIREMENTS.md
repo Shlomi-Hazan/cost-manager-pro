@@ -1,5 +1,7 @@
 # Cost Manager Front-End — Official Requirements Register
 
+> **ARCHIVED — HISTORICAL, NOT NORMATIVE.** This document belongs to the original university project *Cost Manager Front-End* (Shlomi Hazan and Eldad Simanian). It no longer governs Cost Manager Pro. See [the archive index](README.md) for how its requirements were classified, and [`AGENTS.md`](../../../AGENTS.md) for the rules that apply today.
+
 > **Purpose:** This file converts the official course specification into a traceable requirements register for development, testing, GitHub Issues, Pull Requests, and the final audit.
 >
 > **Source of truth:** `fed_hit_final_project_202607.pdf`
