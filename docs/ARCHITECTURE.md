@@ -1,7 +1,7 @@
 # Cost Manager Pro — Architecture
 
-This document describes the architecture **as it exists at baseline
-`bd28ad0`**, then the approved direction. Decisions and their reasons are
+This document describes the architecture **as it exists** (M0 baseline
+`bd28ad0`, updated for M1), then the approved direction. Decisions and their reasons are
 recorded in [`DECISIONS.md`](DECISIONS.md).
 
 > **Legacy references:** source comments that cite `docs/ARCHITECTURE.md §6`
@@ -21,7 +21,7 @@ recorded in [`DECISIONS.md`](DECISIONS.md).
 | Export | `write-excel-file` (XLSX), `jspdf` with `jspdf-autotable` (PDF). Both load only when an export is used |
 | Tests | Vitest 4 with jsdom, Testing Library |
 | Lint | ESLint 10 (flat config) |
-| CI/CD | GitHub Actions: `ci.yml` (lint, test, build on PRs to `main`); `deploy.yml` (GitHub Pages on push to `main`; **currently failing for this repository**, see the [roadmap](ROADMAP.md#deferred-items-found-during-m0)) |
+| CI/CD | GitHub Actions `ci.yml` (lint, test, build on PRs to `main` and pushes to `main`). Vercel configuration in `vercel.json`; **not connected or deployed yet**. See [`DEPLOYMENT.md`](DEPLOYMENT.md) |
 
 There is no backend, no authentication, no router, and no global state
 library.
@@ -35,19 +35,25 @@ src/
 ├── theme.js, index.css      # MUI theme (light only), global CSS
 ├── components/
 │   ├── layout/AppLayout.jsx # app bar + scrollable tabs
-│   ├── common/              # PageHeader, SectionCard, LoadingButtonLabel
+│   ├── common/              # PageHeader, SectionCard, LoadingButtonLabel, StorageStatusBanner
+│   ├── settings/            # DataManagementSection (backup / restore / recovery)
 │   ├── charts/              # YearlyBarChartSection
 │   └── reports/             # SortableReportTable
 ├── pages/                   # Dashboard, AddCost, ManageCosts, Reports (Monthly/Yearly), Charts, Settings
 ├── hooks/useReportSorting.js
 ├── lib/
-│   ├── db.js                # storage API: openCostsDB → addCost/getReport + CRUD extensions
+│   ├── db.js                # expense API: openCostsDB → addCost/getReport + CRUD
 │   ├── costsDatabase.js     # the single shared database handle ("costsdb", version 2)
-│   └── exchangeRatesCache.js
+│   ├── costValidation.js    # record validation shared by the API, storage, and backups
+│   ├── exchangeRatesCache.js
+│   └── storage/             # browserStorage, costDocument (schema + migrations),
+│                            # costStore (safe reads/writes, previous data), backupFormat,
+│                            # legacyStorage (read-only pre-M1 key), storageErrors
 ├── services/
 │   ├── exchangeRatesService.js  # fetch → validate → cache
 │   ├── settingsService.js       # default/custom exchange-rate URL
 │   ├── detailedReportsService.js
+│   ├── dataManagementService.js # backup, restore, import, reset, previous data
 │   └── export/                  # Excel/PDF builders + download helper
 ├── utils/                   # currency, category, dateTime, amountFormat, chart/yearly aggregation, sorting, filenames, chart capture
 └── constants/               # supportedCurrencies, commonCategories
@@ -79,11 +85,14 @@ localStorage, fetch
 
 ## 4. Data model and storage
 
+Full details: [`DATA_STORAGE.md`](DATA_STORAGE.md).
+
 | Key | Contents |
 |---|---|
-| `cost-manager:costsdb:v2:costs` | JSON array of expense records |
-| `cost-manager:settings` | `{ exchangeRatesUrl? }` |
-| `cost-manager:exchange-rates-cache` | The last validated rates `{ USD, ILS, GBP, EURO }` |
+| `cost-manager-pro:costsdb:v2:costs` | `{ schemaVersion: 1, costs: [...] }` |
+| `cost-manager-pro:costsdb:v2:costs:previous` | One safety copy, kept before a dataset is replaced |
+| `cost-manager-pro:settings` | `{ exchangeRatesUrl? }` |
+| `cost-manager-pro:exchange-rates-cache` | The last validated rates `{ USD, ILS, GBP, EURO }` |
 
 Expense record:
 
@@ -98,14 +107,15 @@ Expense record:
 }
 ```
 
-Known limitations, to be fixed in M1 and M2:
+Since M1:
 
-- Unreadable stored JSON is treated as an empty list and is overwritten by
-  the next save.
-- Records are not validated one by one.
-- There is no migration framework. Version 1 data was left in place
-  unread, without migration.
-- The storage keys don't depend on where the app is hosted.
+- All persistence goes through `lib/storage/costStore.js`. Each operation
+  re-reads storage and validates every record.
+- Unusable data (`damaged`, `unsupported`, `unavailable`) throws a
+  `StorageError` with a code. Saving over it is refused.
+- Replacing the whole dataset keeps the previous value first.
+
+Remaining limitations are listed in [`DATA_STORAGE.md`](DATA_STORAGE.md) §8.
 
 ## 5. Exchange rates
 
@@ -130,9 +140,13 @@ can be changed in M2.
 
 ## 7. Testing
 
-- 28 test files ran at baseline, covering the storage API, both `db.js`
-  versions, currency, categories, dates, chart and yearly aggregation,
-  sorting, exports, services, and every page.
+- 35 test files (441 tests) as of M1, covering:
+  - the expense API and both `db.js` versions
+  - storage safety, migrations, backup and restore, and isolation from the
+    original app (`tests/storage/`)
+  - currency, categories, dates, chart and yearly aggregation, sorting,
+    exports, and services
+  - every page
 - No end-to-end tests, no accessibility checks, no coverage report yet
   (M7).
 - Run: `npm run lint`, `npm test`, `npm run build`.

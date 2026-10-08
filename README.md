@@ -6,11 +6,11 @@ Cost Manager Pro is a local-first personal expense manager. It records
 expenses in several currencies, shows where the money goes, and keeps your
 data in your own browser.
 
-> **Status: early independent development (Milestone 0).** The app below
-> works. Its known limitations are listed openly, and the planned
-> improvements are in the [roadmap](docs/ROADMAP.md). It is **not**
-> production-ready yet, and this repository has **no public live demo**
-> yet. A deployment is planned for M1.
+> **Status: early independent development.** The app below works. Its
+> known limitations are listed openly, and the planned improvements are in
+> the [roadmap](docs/ROADMAP.md). It is **not** production-ready yet, and
+> this repository has **no public live demo** yet. A Vercel deployment is
+> prepared and waiting for approval.
 
 ## What it does today
 
@@ -29,6 +29,10 @@ data in your own browser.
   cached. The default rates are **fixed sample values, not live market
   rates**.
 - **Export:** reports and chart data to Excel (`.xlsx`) and PDF.
+- **Your data:** download a versioned backup file, restore it after a
+  confirmation, and undo a restore. If saved data can't be read, it is
+  never overwritten: saving pauses, and Settings offers recovery options.
+  See [`docs/DATA_STORAGE.md`](docs/DATA_STORAGE.md).
 - **Privacy:** no account, no backend, no analytics. Data is stored in your
   browser's `localStorage`.
 
@@ -43,8 +47,8 @@ These are the main ones; details are in
   small screens well.
 - Amounts can show up to 6 decimal places. Money formatting and a rounding
   policy are planned.
-- Stored data that can't be read is replaced on the next save. Backup and
-  restore aren't available yet; both are planned for M1.
+- Data lives only in this browser on this device. Use **Settings → Your
+  data → Download backup** regularly.
 - The Dashboard links to the other sections but shows no data yet.
 - Reports and charts need a manual "Generate" click.
 
@@ -79,9 +83,9 @@ Other scripts:
 | `npm run build` | Build for production into `dist/` |
 | `npm run preview` | Serve the production build |
 
-The production build currently uses the base path `/cost-manager-front-end/`,
-left over from the original deployment. Fixing it is planned for M1. Until
-then, `npm run preview` serves the app under that path.
+The production build is served from the domain root (for Vercel). See
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for CI and deployment
+preparation.
 
 ## Direction
 
@@ -107,6 +111,8 @@ correctness, privacy, and accessibility. Planned milestones:
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Milestones M0–M8 and their status |
 | [`docs/LOCALIZATION.md`](docs/LOCALIZATION.md) | English and Hebrew / RTL requirements |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current architecture and direction |
+| [`docs/DATA_STORAGE.md`](docs/DATA_STORAGE.md) | Storage keys, format, migrations, backup and restore, safeguards |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | CI, Vercel preparation, deployment prerequisites |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architecture decision records |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, conventions, Definition of Done |
 | [`AGENTS.md`](AGENTS.md) | Rules for AI coding agents and contributors |

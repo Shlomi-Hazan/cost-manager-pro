@@ -16,7 +16,7 @@ Each requirement has an ID (`AREA-n`) and one of three statuses:
 
 | Status | Meaning |
 |---|---|
-| **Exists** | Implemented and checked against the code at baseline `bd28ad0`. It may still have known limitations, listed next to it. |
+| **Exists** | Implemented and checked against the code (baseline `bd28ad0`, plus later milestones as noted). It may still have known limitations, listed next to it. |
 | **Approved** | Approved for a future milestone. **Not implemented yet.** |
 | **Optional** | An idea that has not been approved or scheduled. |
 
@@ -93,11 +93,11 @@ Nothing marked **Approved** or **Optional** exists in the app today.
 
 | ID | Requirement | Status | Notes / milestone |
 |---|---|---|---|
-| DATA-1 | Data persists across reloads on the same device and browser | **Exists** | `localStorage` |
-| DATA-2 | Damaged stored data is never silently overwritten or lost | Approved | M1. **Known gap:** today, unreadable stored data is treated as empty and overwritten by the next save |
-| DATA-3 | Stored data has a schema version and tested migrations | Approved | M1 |
-| DATA-4 | Back up all data to a file and restore it from that file | Approved | M1 |
-| DATA-5 | Storage stays separate from the original course app hosted on the same domain | Approved | M1 |
+| DATA-1 | Data persists across reloads on the same device and browser | **Exists** | `localStorage`, per browser origin. See [`DATA_STORAGE.md`](DATA_STORAGE.md) |
+| DATA-2 | Damaged stored data is never silently overwritten or lost | **Exists (M1)** | Unreadable, invalid, or newer-format data pauses saving, is kept unchanged, and can be downloaded. A banner explains the problem (ADR-042) |
+| DATA-3 | Stored data has a schema version and tested migrations | **Exists (M1)** | `schemaVersion` 1; the pre-M1 layout migrates on the next save, with a safety copy (ADR-042) |
+| DATA-4 | Back up all data to a file and restore it from that file | **Exists (M1)** | Settings → Your data. Restore is validated, confirmed, and all-or-nothing, and can be undone with previous data (ADR-043) |
+| DATA-5 | Storage stays separate from the original course app hosted on the same domain | **Exists (M1)** | `cost-manager-pro:` keys only; earlier data is imported only on request, as a copy |
 | DATA-6 | Optional encrypted sync between devices | Optional | Needs a backend; not in the initial scope |
 
 ## 8. Privacy (PRIV)
@@ -125,7 +125,7 @@ Nothing marked **Approved** or **Optional** exists in the app today.
 | PLAT-1 | Desktop and mobile have equal priority; every flow is fully usable at 360 px wide and up | Approved | M3/M4. Today navigation and the expense list do not work well on phones |
 | PLAT-2 | Supported browsers: current Chrome, Edge, Firefox, and Safari, including iOS Safari and Android Chrome | Approved | M7. Only Chrome was checked in the course era |
 | PLAT-3 | Shareable URLs for each section; refresh keeps you on the current page | Approved | M3. Today a refresh always returns to the Dashboard |
-| PLAT-4 | Public live demo | Approved | M1. **No working deployment exists for this repository yet** |
+| PLAT-4 | Public live demo | Approved | Vercel configuration prepared in M1 (ADR-044). **Not deployed yet**; needs separate approval |
 
 ## 11. Localization and RTL (I18N)
 

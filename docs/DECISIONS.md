@@ -1495,6 +1495,144 @@ the local-first choice.
 
 ---
 
+# ADR-042 — Namespaced, Versioned, Fail-Safe Expense Storage
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-09
+
+## Decision
+
+- All Cost Manager Pro keys use the `cost-manager-pro:` prefix. The
+  original course app's `cost-manager:` keys are never written. One of them,
+  `cost-manager:costsdb:v2:costs`, is read only to offer an explicit,
+  confirmed "Import a copy".
+- The expense dataset is stored as `{ schemaVersion, costs }`. The pre-M1
+  bare-array layout is schema 0. It is upgraded by a pure in-memory
+  migration, written only on the next save, and kept as previous data
+  before that first save.
+- Every record is validated whenever data is read. A dataset with any
+  invalid record, a duplicate id, malformed JSON, or the wrong root type is
+  `damaged`. A newer `schemaVersion` is `unsupported`. In both cases reads
+  throw a `StorageError`, saving is refused, and the stored value is never
+  changed.
+- Storage read failures (`unavailable`), a full quota (`quota-exceeded`),
+  and other write failures (`write-failed`) are separate error codes with
+  their own user-facing messages.
+- `localStorage` remains the engine (ADR-041).
+
+## Context
+
+Before M1, `readCosts()` turned missing data, invalid JSON, and a non-array
+value all into `[]`, and the next `addCost()` overwrote the stored value.
+That silently lost data, and a test asserted that behavior. The keys were
+also identical to the original app's, so on a shared origin the two apps
+read and wrote each other's data.
+
+## Alternatives
+
+- **Drop invalid records and keep the rest.** Rejected: totals would be
+  silently wrong, and the next save would lose the dropped records for
+  good.
+- **Migrate the old key automatically.** Rejected: on a shared origin that
+  data may belong to the original app, so a copy is taken only with the
+  user's confirmation.
+- **IndexedDB.** Not needed for M1. It would need a migration of its own.
+
+## Consequences
+
+- `src/lib/db.js` reads and writes through `src/lib/storage/costStore.js`.
+  Its public API is unchanged, but storage failures now throw instead of
+  returning an empty list. Pages show specific messages, and a banner
+  appears whenever saved data cannot be used.
+- `vanilla/db.js` is unchanged and keeps the old behavior and keys (frozen,
+  ADR-037).
+- Details: [`DATA_STORAGE.md`](DATA_STORAGE.md).
+
+---
+
+# ADR-043 — Versioned Backup Files with Atomic, Confirmed Restore
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-09
+
+## Decision
+
+- **Backup:** a JSON file (`format: "cost-manager-pro-backup"`,
+  `formatVersion: 1`) with `exportedAt`, `costCount`, and the records
+  exactly as stored. Expenses only; no settings or cached rates.
+- **Restore always replaces the whole dataset.** v1 has no merge mode.
+  Restore runs in this order:
+  1. Validate the whole file. Newer format versions, count mismatches,
+     invalid records, and duplicate ids are rejected.
+  2. Ask the user to confirm.
+  3. Keep the current value as the single "previous data" copy.
+  4. Write the backup, then read it back to verify.
+- If the copy cannot be written, nothing changes. If the write or the check
+  fails, the earlier value stays or is put back.
+- Previous data can be downloaded or restored. Restoring it is a swap, so
+  it can be undone.
+
+## Context
+
+Data that lives only in the browser needs a way out and a way back. A
+partial restore, or a restore without a way back, would put user data at
+risk.
+
+## Alternatives
+
+- **Merge on restore.** Rejected for v1: id conflicts and duplicate
+  expenses make merging ambiguous for money data.
+- **Several snapshots.** Deferred: `localStorage` space is limited. An
+  empty dataset never replaces an existing snapshot.
+
+## Consequences
+
+- Settings has a "Your data" section with backup, restore, previous data,
+  recovery for unreadable data, and the earlier-version import.
+- Merge, automatic or scheduled backups, and keeping several snapshots are
+  possible future work.
+
+---
+
+# ADR-044 — Vercel as the Hosting Target; GitHub Pages Workflow Retired
+
+**Status:** ACCEPTED (configuration only; not connected or deployed)  
+**Date:** 2026-10-09
+
+## Decision
+
+- Build for the domain root (`base: '/'`).
+- Add `vercel.json`:
+  - Vite framework settings and `npm ci`
+  - `buildCommand` runs lint, tests, and the build, so failing checks fail
+    the Vercel build
+  - an SPA rewrite for paths outside `/assets/`, ready for future
+    client-side routing
+- CI runs on pull requests and pushes to `main`.
+- Remove the GitHub Pages `deploy.yml`.
+
+## Context
+
+The product owner chose Vercel (resolving OD-006). The Pages workflow was
+built for the original course URL. It failed on every push here and could
+not deploy this repository correctly.
+
+## Alternatives
+
+- **Deploy from GitHub Actions with the Vercel CLI after CI.** This would
+  give strict gating, but needs a Vercel token secret. Not authorized in M1.
+
+## Consequences
+
+- Vercel's Git integration deploys on its own and does not wait for GitHub
+  Actions. Gating relies on the checks inside Vercel's build command until
+  branch protection or Vercel check requirements are configured. Those are
+  provider and repository settings outside M1.
+- Nothing is deployed until the product owner approves connecting Vercel.
+  See [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
+---
+
 # 2. Open Decisions
 
 The following decisions remain intentionally unresolved.
@@ -1572,14 +1710,14 @@ milestone:
 
 | ID | Decision | Milestone |
 |---|---|---|
-| OD-006 | Hosting provider for the live demo and how its storage stays separate from the original app | M1 |
+| OD-006 | Hosting provider for the live demo and how its storage stays separate from the original app | **Resolved in M1:** Vercel (ADR-044) and the `cost-manager-pro:` namespace (ADR-042). Deployment still needs approval |
 | OD-007 | What happens to `vanilla/db.js` and its tests (keep frozen or archive) | M1 or M7 |
 | OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | M2 |
 | OD-009 | Migration from `EURO` to ISO `EUR`, and expanding the currency list | M2 |
 | OD-010 | Rounding policy and the rule for which calendar day an expense falls on | M2 |
 | OD-011 | i18n library (or `Intl` with an in-house catalog) | M3 |
 | OD-012 | URL routing approach | M3 |
-| OD-013 | Storage engine (`localStorage` or IndexedDB) for larger data sets | M1 or later |
+| OD-013 | Storage engine (`localStorage` or IndexedDB) for larger data sets | `localStorage` kept in M1 (ADR-042); revisit later |
 | OD-014 | TypeScript adoption | Not scheduled |
 
 ---
