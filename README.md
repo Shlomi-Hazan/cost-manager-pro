@@ -1,221 +1,130 @@
-# Cost Manager Front-End
+# Cost Manager Pro
 
-Final project for the **Front-End Development** course.
+> **Know your money. Feel in control.**
 
-This repository is intentionally being built from the project requirements outward: requirements, architecture, AI-agent instructions, testing strategy, Git/GitHub workflow, implementation, deployment, audit, and submission.
+Cost Manager Pro is a local-first personal expense manager. It records
+expenses in several currencies, shows where the money goes, and keeps your
+data in your own browser.
 
-> **Current status:** Milestone 15.5 — Style Guide Compliance is complete and merged into `main` through [#47](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/47), [#48](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/48), [#49](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/49), and [#50](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/50). Milestone 16 — Final Submission Package is now in progress.
+> **Status: early independent development (Milestone 0).** The app below
+> works. Its known limitations are listed openly, and the planned
+> improvements are in the [roadmap](docs/ROADMAP.md). It is **not**
+> production-ready yet, and this repository has **no public live demo**
+> yet. A deployment is planned for M1.
 
-## Project Goal
+## What it does today
 
-Build a client-side Cost Manager application that complies with the official course specification, including:
+- **Add expenses:** amount, currency, category (free text with
+  suggestions), and description. The date and time are recorded
+  automatically.
+- **Manage expenses:** list, edit (including the date and time), and delete
+  with confirmation.
+- **Reports:** monthly and yearly reports, with sortable rows and a total
+  converted into a chosen currency.
+- **Charts:** a monthly pie chart by category and a yearly 12-month bar
+  chart.
+- **Currencies:** USD, ILS, GBP, and EURO. The original amount and currency
+  of each expense are always kept.
+- **Exchange rates:** fetched from a configurable URL, validated, and
+  cached. The default rates are **fixed sample values, not live market
+  rates**.
+- **Export:** reports and chart data to Excel (`.xlsx`) and PDF.
+- **Privacy:** no account, no backend, no analytics. Data is stored in your
+  browser's `localStorage`.
 
-- English UI
-- USD as the main/base currency
-- `localStorage` persistence
-- Add Cost functionality
-- Detailed monthly reports
-- Monthly category Pie Chart
-- Yearly 12-month Bar Chart
-- `USD`, `ILS`, `GBP`, and `EURO`
-- Exchange rates retrieved with the Fetch API
-- Default and user-configurable exchange-rate URLs
-- Module-compatible and standalone Vanilla versions of `db.js`
-- Latest Google Chrome compatibility
-- Web deployment
-- Exact final submission packaging
+### Known limitations
 
-## Project Links
+These are the main ones; details are in
+[`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md):
 
-🌐 **Live Application:**  
-[Open Cost Manager](https://shlomi-hazan.github.io/cost-manager-front-end/)
+- English only, left-to-right only. English and Hebrew (RTL) are planned
+  for v1.
+- Mobile layout is limited: navigation and the expense list don't fit
+  small screens well.
+- Amounts can show up to 6 decimal places. Money formatting and a rounding
+  policy are planned.
+- Stored data that can't be read is replaced on the next save. Backup and
+  restore aren't available yet; both are planned for M1.
+- The Dashboard links to the other sections but shows no data yet.
+- Reports and charts need a manual "Generate" click.
 
-🎥 **Demo Video:**  
-[Watch the project walkthrough on YouTube](https://youtu.be/cP_SkKUGvJM)
+## Tech stack
 
-## Planned Stack
+React 19 · Vite 8 · MUI 9 · Recharts 3 · Vitest 4 with Testing Library ·
+ESLint 10 · GitHub Actions.
 
-```text
-JavaScript / JSX
-React
-Vite
-MUI
-Recharts
-localStorage
-Fetch API
-Vitest
-ESLint
-Git / GitHub
+There is no backend. Data is stored in `localStorage`, and exchange rates
+are loaded with the Fetch API. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Run locally
+
+You need Node.js 22 (the version used in CI) and npm.
+
+```bash
+npm ci
 ```
 
-The stack is a project architecture decision. Official course requirements remain authoritative.
+```bash
+npm run dev
+```
+
+Then open the local URL Vite prints (usually `http://localhost:5173/`).
+
+Other scripts:
+
+| Command | Purpose |
+|---|---|
+| `npm test` | Run the unit and component tests (Vitest, jsdom) |
+| `npm run lint` | Run ESLint |
+| `npm run build` | Build for production into `dist/` |
+| `npm run preview` | Serve the production build |
+
+The production build currently uses the base path `/cost-manager-front-end/`,
+left over from the original deployment. Fixing it is planned for M1. Until
+then, `npm run preview` serves the app under that path.
+
+## Direction
+
+Cost Manager Pro is growing into a polished, bilingual (English and Hebrew)
+personal finance app. Desktop and mobile get equal priority. The focus is on
+correctness, privacy, and accessibility. Planned milestones:
+
+1. M1 — reliability, backup, and a live demo
+2. M2 — accurate money handling and real exchange rates
+3. M3 — design system, mobile and desktop shell, Hebrew RTL
+4. M4 — a better expense-management experience
+5. M5 — dashboard
+6. M6 — budgets and insights
+7. M7 — quality and accessibility
+8. M8 — launch
 
 ## Documentation
 
 | Document | Purpose |
 |---|---|
-| [`intent.txt`](intent.txt) | Project purpose, priorities, and non-negotiable principles |
-| [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | Traceable official requirements and open clarifications |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Planned system structure and boundaries |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architecture Decision Records |
-| [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md) | Testing and verification strategy |
-| [`docs/PROJECT_ROADMAP_EN.md`](docs/PROJECT_ROADMAP_EN.md) | Full project milestone roadmap (English) |
-| [`docs/SUBMISSION_CHECKLIST.md`](docs/SUBMISSION_CHECKLIST.md) | Final packaging and submission gate |
-| [`AGENTS.md`](AGENTS.md) | Repository instructions for Codex |
-| [`CLAUDE.md`](CLAUDE.md) | Repository instructions for Claude Code |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Git/GitHub collaboration workflow |
+| [`docs/VISION.md`](docs/VISION.md) | Product vision, users, principles, boundaries |
+| [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | What exists today, what is approved, what is optional |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Milestones M0–M8 and their status |
+| [`docs/LOCALIZATION.md`](docs/LOCALIZATION.md) | English and Hebrew / RTL requirements |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current architecture and direction |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architecture decision records |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, conventions, Definition of Done |
+| [`AGENTS.md`](AGENTS.md) | Rules for AI coding agents and contributors |
+| [`docs/archive/course/`](docs/archive/course/README.md) | Original university project documentation (historical) |
 
-### Milestone Roadmaps
+## Origin and credits
 
-- [English roadmap](docs/PROJECT_ROADMAP_EN.md)
-- [Hebrew roadmap](docs/PROJECT_ROADMAP_HE.md)
+Cost Manager Pro is an independent continuation of **Cost Manager
+Front-End**. That project was built as a collaborative university project
+(Front-End Development course, 2026) by:
 
-## Protected `db.js` Contract
+- **Shlomi Hazan** ([@Shlomi-Hazan](https://github.com/Shlomi-Hazan)), co-developer
+- **Eldad Simanian** ([@eldadsimanian](https://github.com/eldadsimanian)), co-developer
 
-The standalone Vanilla library must preserve this public usage pattern:
+Both are credited as co-developers of the original project. Its full Git
+history and authorship are kept in this repository. The original repository,
+[`Shlomi-Hazan/cost-manager-front-end`](https://github.com/Shlomi-Hazan/cost-manager-front-end),
+remains unchanged as the record of the course submission.
 
-```javascript
-const ob = db.openCostsDB("costsdb", 1);
-
-ob.addCost({
-  sum: 200,
-  currency: "USD",
-  category: "FOOD",
-  description: "pizza"
-});
-
-const report = ob.getReport("USD");
-```
-
-Conceptual public structure:
-
-```text
-db
- └── openCostsDB(databaseName, databaseVersion)
-      └── database object
-           ├── addCost(cost)
-           └── getReport(currency, year, month)
-```
-
-## Development Workflow
-
-```text
-Requirement
-    ↓
-GitHub Issue
-    ↓
-Feature/Task Branch
-    ↓
-Implementation
-    ↓
-Tests + Lint + Build
-    ↓
-Pull Request
-    ↓
-Review
-    ↓
-Merge to main
-```
-
-Codex is planned as the primary coding agent. Claude Code is planned mainly for code review, debugging, architecture review, and selected implementation tasks.
-
-## Team
-
-- `@Shlomi-Hazan` — Co-developer / Equal Contributor
-- `@eldadsimanian` — Co-developer / Equal Contributor
-
-## Repository Name
-
-`cost-manager-front-end`
-
-## Visibility
-
-Public.
-
-## Current Milestone
-
-### Milestone 15.5 — Style Guide Compliance
-
-The official course document now directly names and links the required
-style reference, *"The Professional JavaScript Style Guide"* by Haim
-Michael, and a separately supplied course checklist lists common student
-submission rejects. The codebase was reviewed against both (the checklist
-taking precedence on any conflict) and brought into compliance:
-
-- `var` and loose equality (`==`/`!=`) were removed from the codebase
-  (`vanilla/db.js`, `src/utils/chartAggregation.js`).
-- ESLint now enforces `no-var`, `eqeqeq`, `prefer-const`, single-quoted JS
-  strings (`quotes`, with JSX attributes staying double-quoted), and
-  `semi`, applied project-wide via `eslint --fix`.
-- Explanatory comment coverage was reviewed and improved throughout the
-  codebase against the style guide's "at least one comment every 7 lines"
-  guidance, without padding already-clear code with filler comments.
-- JSDoc (`@param`/`@returns`/`@throws`) was added to the required `db.js`
-  contract methods and their CRUD extensions (both versions), and to the
-  core utility/service layer (currency conversion, category/date
-  formatting, chart and yearly aggregation, report sorting, detailed
-  reports, exchange-rate fetching) — see `docs/REQUIREMENTS.md` R-120/R-122
-  for the reasoning and for why this was not extended to every React
-  component.
-- `UPPER_SNAKE_CASE` module-level constants (e.g. `SUPPORTED_CURRENCIES`,
-  `EXCHANGE_RATES_CACHE_KEY`) were renamed to camelCase, matching the style
-  guide's naming-convention rule with no stated exception for constants.
-- `npm run lint`, `npm test` (28 files / 334 tests), and `npm run build`
-  all pass, and the official Vanilla `db.js` compatibility sample
-  (`openCostsDB`/`addCost`/`getReport`) was re-verified after every change.
-
-This was a large, project-wide compliance pass, merged into `main` across [#47](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/47),
-[#48](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/48), [#49](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/49),
-and [#50](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/50).
-The final follow-up improved explanatory comment density throughout the codebase while avoiding unnecessary filler comments.
-See `docs/REQUIREMENTS.md` §18.1 for the full audit trail.
-
-### Milestone 15 — Final Requirements Audit (Issue #13, Stage A)
-
-A requirement-by-requirement audit of `docs/REQUIREMENTS.md` is complete
-against the updated official course document (independently reviewed,
-including the August 18 `ob.getReport()` correction and the August 26
-JavaScript-only PDF-scope rule): 41 of 56 mandatory requirements are
-`VERIFIED` with concrete evidence (automated tests, CI, production QA, and
-PR review). One previously-mandatory requirement (same course group) is no
-longer present in the updated document and has been reclassified
-accordingly. The remaining 15 are not compliance defects — 12 are final
-submission artifacts that intentionally do not exist yet (video, source-code
-PDF, ZIP, separately-copied Vanilla `db.js`, PDF front matter/summary
-insertion), and 3 are pending external verification (a final pre-submission
-forum re-check, the Professional JavaScript Guide's own content, and the
-exact Moodle deadline clock time). See `docs/REQUIREMENTS.md` §18.1/§18.2 and
-this audit's Pull Request for full detail. **Completing this audit does not
-mean the project is ready to submit** — Milestone 16 (final artifact
-generation) has not started.
-
-### Milestone 14 — Documentation & Teamwork Evidence
-
-Comprehensive explanatory code comments were added across the codebase in
-response to a lecturer grading clarification on comments (R-121 — see
-[PR #41](https://github.com/Shlomi-Hazan/cost-manager-front-end/pull/41)).
-GitHub collaboration evidence (Issues, branches, commits, PRs, reviews,
-merges, CI) and Discord usage (voice calls, planning, technical decisions,
-debugging, PR coordination) are documented, with a drafted ≤100-word
-collaborative-tools summary ready for the final PDF. The project was
-developed jointly by Eldad Simanian and Shlomi Hazan as equal contributors.
-
-### Milestone 13 — Production Deployment
-
-Pull requests into `main` continue to be validated automatically using the
-`CI` GitHub Actions workflow (`npm ci`, lint, test, build) before merge.
-
-A separate `Deploy` workflow builds and publishes the application to
-GitHub Pages on every push to `main`. The production build is served from a
-repository subpath (`/cost-manager-front-end/`), so both the build's asset
-base path and the default exchange-rate URL are resolved from Vite's
-`BASE_URL` rather than a hard-coded root path.
-
-**Production URL:** https://shlomi-hazan.github.io/cost-manager-front-end/
-
-**Deployment platform:** GitHub Pages (via GitHub Actions).
-
-Production smoke testing has passed: page load and navigation, the default
-exchange-rate source, localStorage persistence, Monthly/Yearly reports, the
-Pie and Bar charts, and report/chart exports were all verified directly
-against the production URL.
+Shlomi Hazan leads the independent development of Cost Manager Pro that
+followed.

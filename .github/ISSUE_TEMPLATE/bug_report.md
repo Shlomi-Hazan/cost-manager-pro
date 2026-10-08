@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible project bug
+about: Report a reproducible bug
 title: "fix: "
 labels: bug
 assignees: ""
@@ -20,13 +20,15 @@ Describe the bug.
 
 ## Actual Behavior
 
-## Requirement IDs
+## Data Impact
 
-- R-
+Could this lose, corrupt, or misreport stored data or money values?
 
 ## Environment
 
-- Browser:
+- Browser and version:
+- Device / viewport (desktop or mobile):
+- Language / direction (`en` LTR or `he` RTL), if applicable:
 - Branch/commit:
 
 ## Evidence
@@ -36,8 +38,7 @@ Console errors, screenshots, or test output.
 ## Definition of Done
 
 - [ ] Root cause identified
+- [ ] Regression test reproduces the bug first
 - [ ] Smallest correct fix implemented
-- [ ] Regression test added where practical
-- [ ] Relevant tests pass
-- [ ] Lint passes
-- [ ] Build passes
+- [ ] Lint, tests, and build pass
+- [ ] Browser check where the bug is visible
