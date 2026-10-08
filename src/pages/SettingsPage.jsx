@@ -15,6 +15,7 @@ import {
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
+import DataManagementSection from '../components/settings/DataManagementSection.jsx';
 import { refreshExchangeRates } from '../services/exchangeRatesService.js';
 import {
   defaultExchangeRatesUrl,
@@ -154,7 +155,7 @@ function SettingsPage() {
   return (
     <Stack spacing={3}>
       <PageHeader title="Settings">
-        Manage the exchange-rate source used by reports and charts.
+        Manage your stored data and the exchange-rate source used by reports and charts.
       </PageHeader>
 
       {/* Custom-URL form: submitting it calls handleSaveCustomSource above. */}
@@ -285,6 +286,9 @@ function SettingsPage() {
           </Box>
         </Stack>
       </SectionCard>
+
+      {/* M1: backup, restore, and recovery of stored expenses. */}
+      <DataManagementSection />
     </Stack>
   );
 }

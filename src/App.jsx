@@ -14,6 +14,7 @@ import ReportsPage from './pages/ReportsPage.jsx';
 import ChartsPage from './pages/ChartsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import AppLayout from './components/layout/AppLayout.jsx';
+import StorageStatusBanner from './components/common/StorageStatusBanner.jsx';
 
 /*
  * The application is a small single-page app with no URL-based routing
@@ -86,6 +87,8 @@ function App() {
       navigationItems={pages}
       onNavigate={setActivePageId}
     >
+      {/* Only renders when stored expenses cannot be used (M1). */}
+      <StorageStatusBanner activePageId={activePageId} onNavigate={setActivePageId} />
       <ActivePage onNavigate={setActivePageId} />
     </AppLayout>
   );
