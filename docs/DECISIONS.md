@@ -1122,6 +1122,8 @@ while `OQ-002` means the external report date shape should remain conservative.
 
 **Date:** 2026-08-24
 
+> **M0 review (2026-10-08):** The CRUD methods are still in force. Two parts have been retired: keeping the module and Vanilla versions in step, and the grader-compatibility reason. New methods do not need to be copied into `vanilla/db.js` (ADR-037).
+
 ## Decision
 
 The object returned by `openCostsDB()` keeps `addCost()` and `getReport()` and
