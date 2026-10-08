@@ -16,14 +16,23 @@
  * (tracked as OQ-003 in docs/REQUIREMENTS.md).
  */
 import { validateExchangeRates } from '../utils/currency.js';
+import { readItem, removeItem, writeItem } from './storage/browserStorage.js';
 
-export const exchangeRatesCacheKey = 'cost-manager:exchange-rates-cache';
+// Namespaced for Cost Manager Pro (ADR-042). The cache only holds data that
+// can be fetched again, so the old "cost-manager:" key is not migrated.
+export const exchangeRatesCacheKey = 'cost-manager-pro:exchange-rates-cache';
 
 // Returns null (rather than throwing) for "no cache yet" AND for corrupted/
 // invalid cached data, since both cases mean the same thing to a caller:
 // there are no rates it can safely convert with right now.
 export function getCachedExchangeRates() {
-  const storedValue = localStorage.getItem(exchangeRatesCacheKey);
+  let storedValue;
+
+  try {
+    storedValue = readItem(exchangeRatesCacheKey);
+  } catch {
+    return null;
+  }
 
   if (storedValue === null) {
     return null;
@@ -42,11 +51,11 @@ export function getCachedExchangeRates() {
 export function setCachedExchangeRates(rates) {
   const validatedRates = validateExchangeRates(rates);
 
-  localStorage.setItem(exchangeRatesCacheKey, JSON.stringify(validatedRates));
+  writeItem(exchangeRatesCacheKey, JSON.stringify(validatedRates));
 
   return validatedRates;
 }
 
 export function clearCachedExchangeRates() {
-  localStorage.removeItem(exchangeRatesCacheKey);
+  removeItem(exchangeRatesCacheKey);
 }

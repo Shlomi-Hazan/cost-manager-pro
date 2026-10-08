@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 // Icons for the per-row Edit/Delete buttons and the empty-state alert.
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -40,6 +40,7 @@ import {
   parseTimeInput
 } from '../utils/dateTime.js';
 import { formatDisplayAmount } from '../utils/amountFormat.js';
+import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
  * TEAM EXTENSION (X-002/X-003): lets the user view, edit, and delete
@@ -115,8 +116,28 @@ function validateEditValues(values) {
   };
 }
 
+// Reads the list without letting a storage problem crash the page. An
+// unreadable dataset is reported as an error, never shown as "no costs".
+function loadCostList() {
+  try {
+    return { costs: costsDatabase.getAllCosts(), errorMessage: '' };
+  } catch (error) {
+    return {
+      costs: [],
+      errorMessage:
+        getStorageErrorMessage(error) ?? 'Your expenses could not be loaded. Please reload the page.'
+    };
+  }
+}
+
 // Translates db.js's date-validation error into a friendlier form message.
 function getDatabaseErrorMessage(error, fallbackMessage) {
+  const storageMessage = getStorageErrorMessage(error);
+
+  if (storageMessage) {
+    return storageMessage;
+  }
+
   if (error instanceof Error && error.message.includes('real calendar date')) {
     return 'Enter a real calendar date.';
   }
@@ -128,7 +149,8 @@ function ManageCostsPage() {
   // Saved-costs list, a page-level feedback banner, and separate
   // edit/delete dialog state (each dialog has its own draft values,
   // errors, and feedback so the two flows never interfere with each other).
-  const [costs, setCosts] = useState(() => costsDatabase.getAllCosts());
+  const [costList, setCostList] = useState(loadCostList);
+  const { costs, errorMessage: loadErrorMessage } = costList;
   const [feedback, setFeedback] = useState(null);
   const [editCost, setEditCost] = useState(null);
   const [editValues, setEditValues] = useState(null);
@@ -139,8 +161,22 @@ function ManageCostsPage() {
 
   // Re-reads the full list from db.js after any add/edit/delete elsewhere.
   function loadCosts() {
-    setCosts(costsDatabase.getAllCosts());
+    setCostList(loadCostList());
   }
+
+  // Another tab may add, edit, delete, or restore data. The browser fires a
+  // "storage" event in this tab when that happens, so the list stays current.
+  useEffect(() => {
+    function handleStorageChange(event) {
+      if (event.key === null || event.key.startsWith('cost-manager-pro:')) {
+        setCostList(loadCostList());
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Opens the edit dialog pre-filled with this row's current values.
   function handleOpenEdit(cost) {
@@ -297,8 +333,10 @@ function ManageCostsPage() {
         severity: 'success',
         message: 'Cost deleted successfully.'
       });
-    } catch {
-      setDeleteFeedback('Could not delete cost. Please try again.');
+    } catch (error) {
+      setDeleteFeedback(
+        getStorageErrorMessage(error) ?? 'Could not delete cost. Please try again.'
+      );
     }
   }
 
@@ -310,8 +348,10 @@ function ManageCostsPage() {
 
       {feedback ? <Alert severity={feedback.severity}>{feedback.message}</Alert> : null}
 
-      {/* Empty state vs. the saved-costs table below. */}
-      {costs.length === 0 ? (
+      {/* Load error vs. empty state vs. the saved-costs table below. */}
+      {loadErrorMessage ? (
+        <Alert severity="error">{loadErrorMessage}</Alert>
+      ) : costs.length === 0 ? (
         <Alert icon={<InboxOutlinedIcon aria-hidden="true" />} severity="info">
           No costs have been added yet. Add costs from the Add Cost section.
         </Alert>

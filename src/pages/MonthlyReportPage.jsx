@@ -32,6 +32,7 @@ import {
   getMonthlyReportExportFilename
 } from '../utils/exportFilenames.js';
 import { formatDisplayAmount } from '../utils/amountFormat.js';
+import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
  * Course requirement: the detailed monthly report (R-050 to R-053) — pick a
@@ -113,6 +114,12 @@ function validateFilters(filters) {
 // not an application bug — so it is translated into a friendly retry
 // message rather than a generic failure.
 function getReportErrorMessage(error) {
+  const storageMessage = getStorageErrorMessage(error);
+
+  if (storageMessage) {
+    return storageMessage;
+  }
+
   if (
     error instanceof Error &&
     error.message.includes('cached exchange rates')
