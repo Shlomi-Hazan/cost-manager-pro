@@ -13,7 +13,8 @@ or no data. Users should download backups.
 | Key | Contents | Notes |
 |---|---|---|
 | `cost-manager-pro:costsdb:v2:costs` | The expense dataset (§2) | `costsdb` and `v2` come from `openCostsDB(name, version)`. They identify the dataset; they are **not** the format version |
-| `cost-manager-pro:costsdb:v2:costs:previous` | One "previous data" safety copy (§5) | Written before any whole-dataset replacement |
+| `cost-manager-pro:costsdb:v2:costs:previous` | One "previous data" safety copy (§5) | Updated only after a replacement is written and verified |
+| `cost-manager-pro:costsdb:v2:costs:previous:pending` | The next safety copy, while a replacement is in progress (§5) | Normally removed at the end of the operation |
 | `cost-manager-pro:settings` | `{ exchangeRatesUrl? }` | No financial data |
 | `cost-manager-pro:exchange-rates-cache` | Last validated rates | Can always be fetched again |
 
@@ -82,15 +83,15 @@ layer. `EURO` is unchanged; moving to ISO `EUR` is planned for M2.
 | The browser refuses to read storage | `unavailable`: reads and writes throw, and nothing is written | No |
 | Storage is full when saving | `quota-exceeded`: the write is rejected by the browser. The previous value stays, and the user is told. Add Cost keeps the typed form values | No |
 | Another write failure | `write-failed`: same as above | No |
-| Another tab changed the data | Every operation re-reads storage. Manage Costs, the banner, and Settings refresh on the browser's `storage` event | Very small risk; see §8 |
+| Another tab changed the data | Every operation re-reads storage. Just before writing, it checks the data still equals what it read; if not, `conflict` is reported and nothing is saved. Manage Costs, the banner, and Settings refresh on the browser's `storage` event | Small remaining risk; see §8 |
 
 User-facing messages for each case are in `src/utils/storageErrorMessage.js`.
 
 ## 5. Previous data (the safety copy)
 
-Restoring a backup, importing earlier data, resetting unreadable data, and
-the schema-migration save all keep the replaced value first, in
-`…:previous`:
+Restoring a backup, importing earlier data, resetting unreadable data,
+undoing ("Restore previous data"), and the schema-migration save all keep
+the replaced value as previous data. The record format is:
 
 ```json
 {
@@ -101,7 +102,33 @@ the schema-migration save all keep the replaced value first, in
 }
 ```
 
-- If writing the safety copy fails, the replacement does not happen.
+**Commit sequence** (`commitWithPreviousData` in
+`src/lib/storage/costStore.js`):
+
+1. Stage the copy of the current value under `…:previous:pending`. If this
+   fails, nothing has changed.
+2. Check that the data still equals the value that was read. If another
+   tab changed it, stop with a `conflict` error; nothing is changed.
+3. Write the new data. If this fails, the data and the existing snapshot
+   are both unchanged.
+4. Read the data back. If it is not exactly what was written, write the
+   earlier value back. If that rollback also fails, report
+   `recovery-incomplete`; the earlier value is still held under the
+   pending key.
+5. Copy the staged copy into `…:previous`, then remove the pending key.
+
+At every step, the earlier data, the new data, and the earlier snapshot
+each exist in at least one key. A pending copy left by a closed tab or a
+failed late step is resolved by comparing it with the current data:
+
+- **The data still equals the staged value:** the replacement never
+  happened, so the staged copy is a duplicate and is discarded.
+- **Otherwise:** the staged copy is the real previous data. Settings shows
+  it, and the next replacement moves it into `…:previous`.
+
+Reading never writes; this resolution happens only at the start of the
+next replacement.
+
 - Only **one** copy is kept. To avoid losing something valuable, an empty
   dataset never replaces an existing copy. Confirmation dialogs say when a
   copy will be replaced.
@@ -166,9 +193,18 @@ app.
 - `localStorage` is limited (usually about 5 MB per origin). The safety
   copy roughly doubles the space a dataset needs during a replacement.
 - Only one previous-data copy is kept.
-- Two tabs saving in the same few milliseconds could still overwrite each
-  other (last write wins). Both tabs re-read before every save, so this
-  needs truly simultaneous saves.
+- **No cross-tab atomicity.** `localStorage` has no transactions and no
+  compare-and-swap.
+  - Each save re-reads the data immediately before writing and refuses on
+    a mismatch (`conflict`). That narrows the window, but cannot close it:
+    another tab could still write between that check and the write
+    (microseconds apart), and the later write wins.
+  - A multi-step replacement is not atomic either. The commit sequence
+    guarantees **recoverability**, not atomicity.
+  - Making this airtight would need a cross-tab lock (for example the Web
+    Locks API) or a different storage engine. Neither is part of M1.
+- If the browser itself loses or corrupts a write in a way that is not
+  reported, nothing in the app can detect it beyond the read-back check.
 - Malformed **settings** fall back to defaults and may be overwritten on
   the next settings save. Settings hold no financial data.
 - Unreadable data can be downloaded and set aside, but the app does not

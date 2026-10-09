@@ -1592,6 +1592,20 @@ risk.
 - Merge, automatic or scheduled backups, and keeping several snapshots are
   possible future work.
 
+> **M1 pre-merge hardening (2026-10-09):** the first implementation
+> overwrote the single snapshot before the data write was confirmed. One
+> failed data write during a restore, or a failed write plus a failed
+> repair during undo, could destroy the only remaining copy.
+>
+> All replacements now use a staged copy under `…:previous:pending` (written
+> first, promoted only after the data write is verified), so every value
+> involved exists in at least one key at every step. Before each write, the
+> data is checked to be unchanged since it was read (`conflict`). A failed
+> rollback is reported as `recovery-incomplete`.
+>
+> This guarantees that data can be recovered, not that changes are atomic
+> across tabs. See [`DATA_STORAGE.md`](DATA_STORAGE.md) §5 and §8.
+
 ---
 
 # ADR-044 — Vercel as the Hosting Target; GitHub Pages Workflow Retired
