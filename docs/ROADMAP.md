@@ -7,8 +7,8 @@ work starts. **Approving one milestone never approves the next one**
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | Project Independence & Governance | **In progress** |
-| M1 | Reliability, Storage & Deployment | Not started |
+| M0 | Project Independence & Governance | **Done** (PR #1, merged 2026-10-08) |
+| M1 | Reliability, Storage & Deployment | **In progress** (draft PR, awaiting review) |
 | M2 | Financial Accuracy & Currency Engine | Not started |
 | M3 | Design System & App Shell | Not started |
 | M4 | Expense Management Experience | Not started |
@@ -67,6 +67,15 @@ Requirement IDs (`EXP-*`, `DATA-*`, and so on) are defined in
   - backup and restore work in both directions
   - the live demo URL loads and passes a smoke test
   - a failing test blocks deployment
+- **Refined scope (approved for M1, 2026-10-09):**
+  - Hosting is Vercel. M1 only prepares the configuration; connecting
+    Vercel and deploying need separate approval, so the live-demo criterion
+    is met after that step, not by M1 alone.
+  - Storage stays `localStorage` (ADR-042).
+  - Backup and restore replace the whole dataset; there is no merge
+    (ADR-043).
+  - See [`DATA_STORAGE.md`](DATA_STORAGE.md) and
+    [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## M2 — Financial Accuracy & Currency Engine
 
@@ -180,15 +189,26 @@ Requirement IDs (`EXP-*`, `DATA-*`, and so on) are defined in
 
 ## Deferred items found during M0
 
-M0 was not allowed to change these. Each is assigned to a milestone:
+M0 was not allowed to change these. Each is assigned to a milestone, and the status is updated as items are done:
 
 | Item | Target |
 |---|---|
-| Build path is hard-coded to `/cost-manager-front-end/` (`vite.config.js`), and GitHub Pages is not enabled for this repository, so the Deploy workflow fails on push to `main` | M1 |
-| The Deploy workflow does not run lint or tests; CI runs only on pull requests | M1 |
-| Storage keys would clash with the original app if both are hosted under `shlomi-hazan.github.io` | M1 |
+| Build path is hard-coded to `/cost-manager-front-end/` (`vite.config.js`), and GitHub Pages is not enabled for this repository, so the Deploy workflow fails on push to `main` | **Done in M1** (root base path; Pages workflow removed) |
+| The Deploy workflow does not run lint or tests; CI runs only on pull requests | **Done in M1** (CI runs on pushes to `main`; Vercel's build command runs lint and tests). Branch protection is still a repository setting |
+| Storage keys would clash with the original app if both are hosted under `shlomi-hazan.github.io` | **Done in M1** (`cost-manager-pro:` namespace) |
 | Decide what happens to `vanilla/db.js`, `vanilla/db-test.html`, and their tests (keep frozen, or archive) | M1 or M7 |
 | Rename the package in `package.json` (`cost-manager-front-end`) and the PDF export title ("Cost Manager") to the new product identity | M1 or M3 |
 | Update source and test comments that mention course IDs (`R-*`, `X-*`, `OQ-*`) and old document paths, and remove comments added only to meet the course comment-count rule | Whenever each file is next changed |
 | Add a GitHub repository description, homepage, and topics | M8, or when the live demo exists |
-| Low-severity `dompurify` advisory (pulled in by jsPDF) and routine dependency updates | M1 |
+| Low-severity `dompurify` advisory (pulled in by jsPDF) and routine dependency updates | Deferred again: M1 does not change dependencies. Do it in a separate dependency-maintenance task |
+
+## Deferred items found during M1
+
+| Item | Target |
+|---|---|
+| Connect Vercel and run the first deployment, then the production smoke test ([`DEPLOYMENT.md`](DEPLOYMENT.md) §5) | Needs separate approval |
+| Branch protection on `main` requiring CI; optionally require GitHub checks in Vercel before production | Repository/provider settings (product owner) |
+| Keep more than one previous-data copy; show storage usage before large restores | M7, or when needed |
+| Merge-style restore, and automatic or scheduled backup reminders | Not scheduled |
+| Translate and localize the storage, backup, and recovery messages | M3 (with i18n) |
+| Main bundle grew from 963 kB to 983 kB (minified) with the M1 code; code splitting | M7 |

@@ -44,6 +44,7 @@ import { captureChartSvgAsPngDataUrl } from '../../utils/chartCapture.js';
 import { getBarChartExportFilename } from '../../utils/exportFilenames.js';
 import { buildYearlyMonthlyTotals } from '../../utils/yearlyAggregation.js';
 import { formatDisplayAmount } from '../../utils/amountFormat.js';
+import { getStorageErrorMessage } from '../../utils/storageErrorMessage.js';
 import { formatPositiveBarValueLabel } from '../../utils/chartPresentation.js';
 
 /*
@@ -88,6 +89,12 @@ function validateFilters(filters) {
 
 // Maps a thrown error to a user-facing message for the chart's error alert.
 function getYearlyErrorMessage(error) {
+  const storageMessage = getStorageErrorMessage(error);
+
+  if (storageMessage) {
+    return storageMessage;
+  }
+
   if (
     error instanceof Error &&
     (error.message.includes('cached exchange rates') ||

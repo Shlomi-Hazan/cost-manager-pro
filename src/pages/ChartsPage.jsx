@@ -55,6 +55,7 @@ import {
   formatDisplayAmount,
   formatDisplayPercentage
 } from '../utils/amountFormat.js';
+import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
  * Course requirement: the monthly category Pie Chart (R-070/R-071). Renders
@@ -137,6 +138,12 @@ function validateFilters(filters) {
 
 // Maps a thrown error to a user-facing message for the chart's error alert.
 function getChartErrorMessage(error) {
+  const storageMessage = getStorageErrorMessage(error);
+
+  if (storageMessage) {
+    return storageMessage;
+  }
+
   if (
     error instanceof Error &&
     (error.message.includes('cached exchange rates') ||

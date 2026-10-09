@@ -5,18 +5,29 @@
  * decision and persists the user's choice in localStorage; it does not
  * perform the actual Fetch itself (see exchangeRatesService.js for that).
  */
+import { readItem, writeItem } from '../lib/storage/browserStorage.js';
 
 // Built from Vite's BASE_URL rather than a hard-coded leading slash so this
-// still resolves correctly when the app is served from a subpath, such as a
-// GitHub Pages project site (https://<user>.github.io/cost-manager-front-end/).
+// keeps resolving correctly if the app is ever served from a subpath. The
+// app is built for the domain root (Vercel), so this is "/exchange-rates.json".
 export const defaultExchangeRatesUrl = `${import.meta.env.BASE_URL}exchange-rates.json`;
-export const settingsStorageKey = 'cost-manager:settings';
+// Namespaced for Cost Manager Pro (ADR-042). The original course app's
+// "cost-manager:settings" key is never read or written.
+export const settingsStorageKey = 'cost-manager-pro:settings';
 
 // Settings are stored as a single small object under one key rather than one
 // key per setting, since there is currently only one setting to persist and
 // this keeps room to add more without a storage-key migration.
+// Settings hold no financial data, so if storage cannot be read the app
+// falls back to defaults instead of failing; saving still reports errors.
 function readSettings() {
-  const storedValue = localStorage.getItem(settingsStorageKey);
+  let storedValue;
+
+  try {
+    storedValue = readItem(settingsStorageKey);
+  } catch {
+    return {};
+  }
 
   if (storedValue === null) {
     return {};
@@ -34,7 +45,7 @@ function readSettings() {
 }
 
 function writeSettings(settings) {
-  localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
+  writeItem(settingsStorageKey, JSON.stringify(settings));
 }
 
 // Returns null (not an empty string) when no custom URL is configured, so

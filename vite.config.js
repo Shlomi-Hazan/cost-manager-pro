@@ -1,15 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// GitHub Pages serves this project under a repository subpath
-// (https://<user>.github.io/cost-manager-front-end/), not the domain root.
-// `vite preview` reports command "serve" (like `vite dev`) with a separate
-// isPreview flag, so isPreview must be checked too - otherwise the preview
-// server serves at "/" while the already-built dist/index.html references
-// assets under the subpath, and every asset request falls through to the
-// SPA index.html fallback instead of the real file.
-export default defineConfig(({ command, isPreview }) => ({
-  base: command === 'build' || isPreview ? '/cost-manager-front-end/' : '/',
+// The app is built for the root of its domain (Vercel, ADR-044), so assets
+// are referenced as /assets/... and the default exchange-rate file resolves
+// to /exchange-rates.json. The GitHub Pages subpath used by the original
+// course deployment (/cost-manager-front-end/) no longer applies.
+export default defineConfig({
+  base: '/',
   plugins: [react()],
   // jsdom simulates a browser DOM for Vitest so component tests can render
   // React components and touch localStorage without a real browser;
@@ -19,4 +16,4 @@ export default defineConfig(({ command, isPreview }) => ({
     globals: true,
     setupFiles: './src/test/setup.js'
   }
-}));
+});

@@ -5,7 +5,7 @@ import {
   costsDatabaseVersion,
   costsDatabase
 } from '../../src/lib/costsDatabase.js';
-import { db } from '../../src/lib/db.js';
+import { db, getCostsStorageKey } from '../../src/lib/db.js';
 
 /*
  * Contract tests for the module version of db.js (src/lib/db.js). Per
@@ -24,10 +24,12 @@ function setLocalDate(year, month, day, hour = 12, minute = 0) {
   vi.setSystemTime(new Date(year, month - 1, day, hour, minute, 0));
 }
 
+// Reads the records exactly as stored. Since M1 the value is a versioned
+// document ({ schemaVersion, costs }) under the Cost Manager Pro namespace.
 function readStoredCosts(databaseName = 'costsdb', databaseVersion = 1) {
-  const storageKey = `cost-manager:${encodeURIComponent(databaseName)}:v${databaseVersion}:costs`;
+  const storedValue = localStorage.getItem(getCostsStorageKey(databaseName, databaseVersion));
 
-  return JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+  return storedValue === null ? [] : JSON.parse(storedValue).costs;
 }
 
 function expectDatabaseObject(ob) {
@@ -348,8 +350,10 @@ describe('module db contract', () => {
   });
 
   it('uses application database version 2 without reading version 1 application costs', () => {
+    const legacyVersion1Key = `cost-manager:${encodeURIComponent(costsDatabaseName)}:v1:costs`;
+
     localStorage.setItem(
-      `cost-manager:${encodeURIComponent(costsDatabaseName)}:v1:costs`,
+      legacyVersion1Key,
       JSON.stringify([
         {
           sum: 999,
@@ -371,7 +375,9 @@ describe('module db contract', () => {
       description: 'Current app cost'
     });
 
-    expect(readStoredCosts(costsDatabaseName, 1)).toHaveLength(1);
+    // The old course-era key is neither read nor changed.
+    expect(JSON.parse(localStorage.getItem(legacyVersion1Key))).toHaveLength(1);
+    expect(readStoredCosts(costsDatabaseName, 1)).toHaveLength(0);
     expect(readStoredCosts(costsDatabaseName, 2)).toHaveLength(1);
     expect(costsDatabase.getReport('USD', 2026, 8).total.sum).toBe(10);
   });
@@ -797,33 +803,34 @@ describe('module db contract', () => {
     );
   });
 
-  // --- Malformed-storage resilience: corrupted/hand-edited localStorage
-  // must degrade gracefully instead of crashing the app or the grader. ---
+  // --- Malformed storage (M1, DATA-2). Before M1 this test asserted that
+  // unreadable data was treated as an empty list and then overwritten by
+  // the next addCost(), which silently lost the stored data. It now asserts
+  // the safe behavior: the error is explicit and the stored value is never
+  // overwritten. Detailed cases live in tests/storage/. ---
 
-  it('treats malformed stored cost data as an empty list instead of throwing', () => {
-    localStorage.setItem(
-      'cost-manager:costsdb:v1:costs',
-      '{not valid JSON'
-    );
+  it('refuses to read or overwrite malformed stored cost data', () => {
+    const storageKey = getCostsStorageKey('costsdb', 1);
+
+    localStorage.setItem(storageKey, '{not valid JSON');
     const ob = db.openCostsDB('costsdb', 1);
 
-    expect(() => ob.getReport('USD', 2026, 8)).not.toThrow();
-    expect(ob.getReport('USD', 2026, 8)).toEqual({
-      year: 2026,
-      month: 8,
-      costs: [],
-      total: { currency: 'USD', sum: 0 }
-    });
-    expect(ob.getAllCosts()).toEqual([]);
+    expect(() => ob.getReport('USD', 2026, 8)).toThrow(
+      expect.objectContaining({ name: 'StorageError', code: 'damaged' })
+    );
+    expect(() => ob.getAllCosts()).toThrow(
+      expect.objectContaining({ code: 'damaged' })
+    );
+    expect(() =>
+      ob.addCost({
+        sum: 40,
+        currency: 'USD',
+        category: 'Recovered',
+        description: 'Added after malformed data'
+      })
+    ).toThrow(expect.objectContaining({ code: 'damaged' }));
 
-    ob.addCost({
-      sum: 40,
-      currency: 'USD',
-      category: 'Recovered',
-      description: 'Added after malformed data'
-    });
-
-    expect(ob.getReport('USD', 2026, 8).total.sum).toBe(40);
+    expect(localStorage.getItem(storageKey)).toBe('{not valid JSON');
   });
 
   it('preserves unrelated localStorage keys when adding, updating, and deleting costs', () => {

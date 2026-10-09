@@ -32,6 +32,7 @@ import {
   getYearlyReportExportFilename
 } from '../utils/exportFilenames.js';
 import { formatDisplayAmount } from '../utils/amountFormat.js';
+import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
  * TEAM EXTENSION (X-005): a full-year detail report, in addition to the
@@ -75,6 +76,12 @@ function validateFilters(filters) {
 
 // Maps a thrown error to a user-facing message for the report's error alert.
 function getReportErrorMessage(error) {
+  const storageMessage = getStorageErrorMessage(error);
+
+  if (storageMessage) {
+    return storageMessage;
+  }
+
   if (
     error instanceof Error &&
     (error.message.includes('cached exchange rates') ||

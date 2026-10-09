@@ -3,7 +3,8 @@ import { ThemeProvider } from '@mui/material/styles';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { costsDatabaseName } from '../lib/costsDatabase.js';
+import { costsDatabaseName, costsDatabaseVersion } from '../lib/costsDatabase.js';
+import { getCostsStorageKey } from '../lib/db.js';
 import { setCachedExchangeRates } from '../lib/exchangeRatesCache.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
 import * as excelExportService from '../services/export/excelExportService.js';
@@ -85,10 +86,10 @@ function addCostOnDate({ year = 2026, month = 8, day, cost }) {
   costsDatabase.addCost(cost);
 }
 
+// Reads the app's real dataset key. Before M1 this helper read the unused
+// version 1 key, so the "storage unchanged" assertion compared [] with [].
 function readStoredCosts() {
-  const storageKey = `cost-manager:${encodeURIComponent(costsDatabaseName)}:v1:costs`;
-
-  return JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+  return localStorage.getItem(getCostsStorageKey(costsDatabaseName, costsDatabaseVersion));
 }
 
 function getTotalsTable() {

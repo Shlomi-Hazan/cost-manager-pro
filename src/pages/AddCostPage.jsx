@@ -16,6 +16,7 @@ import { commonCategories } from '../constants/categories.js';
 import { supportedCurrencies } from '../constants/currencies.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
 import { normalizeCategoryInput } from '../utils/category.js';
+import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
  * Course requirement: lets the user add a new cost with sum, currency,
@@ -154,10 +155,12 @@ function AddCostPage() {
         severity: 'success',
         message: 'Cost added successfully.'
       });
-    } catch {
+    } catch (error) {
+      // Storage problems (full, blocked, unreadable data) get a specific
+      // explanation; the form keeps its values so nothing typed is lost.
       setFeedback({
         severity: 'error',
-        message: 'Could not add cost. Please try again.'
+        message: getStorageErrorMessage(error) ?? 'Could not add cost. Please try again.'
       });
     }
   }

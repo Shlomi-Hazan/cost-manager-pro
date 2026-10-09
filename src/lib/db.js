@@ -1,12 +1,12 @@
 /*
- * Module-compatible version of the required db.js library (see also
- * vanilla/db.js, the standalone version submitted separately for grading).
- * Both files implement the SAME public contract and the SAME internal
- * behavior; only the module wrapper syntax differs (import/export here vs.
- * a global IIFE there). If you change behavior in one file, mirror it in
- * the other, or the two versions will silently drift apart.
+ * The application's expense database API. It began as the course's
+ * required db.js (vanilla/db.js is the frozen standalone copy from that
+ * time). Keeping the two files in step is no longer required (ADR-037):
+ * since M1 this module stores data through the safe storage layer in
+ * ./storage/ and under the Cost Manager Pro namespace, while vanilla/db.js
+ * keeps its original behavior.
  *
- * Required public contract (must not change):
+ * Public API, kept stable because the whole app depends on it:
  *
  *   const ob = db.openCostsDB(databaseName, databaseVersion);
  *   ob.addCost({ sum, currency, category, description });
@@ -23,15 +23,20 @@
  * category, description — and the required method signatures above are
  * treated as a protected, external contract throughout this file.
  */
-import { supportedCurrencies } from '../constants/currencies.js';
 import { getCachedExchangeRates } from './exchangeRatesCache.js';
 import { convertCurrency } from '../utils/currency.js';
+import {
+  copyCostRecord,
+  isSupportedCurrency,
+  validateCost,
+  validateCostDate,
+  validateCostId
+} from './costValidation.js';
+import { createCostStore } from './storage/costStore.js';
 
-const storagePrefix = 'cost-manager';
-
-function isSupportedCurrency(currency) {
-  return supportedCurrencies.includes(currency);
-}
+// Application-specific namespace (ADR-042). The original course app used the
+// "cost-manager" prefix for the same keys; Cost Manager Pro never writes there.
+export const storageNamespace = 'cost-manager-pro';
 
 // R-035: every cost gets its "added on" date automatically, from the
 // system clock, rather than from caller input. Day/month/year are what the
@@ -67,8 +72,8 @@ function generateCostId() {
 // Both arguments genuinely affect where data is stored (rather than being
 // accepted and ignored), so opening the database with a different name or
 // version starts from a separate, empty cost list.
-function getStorageKey(databaseName, databaseVersion) {
-  return `${storagePrefix}:${encodeURIComponent(databaseName)}:v${databaseVersion}:costs`;
+export function getCostsStorageKey(databaseName, databaseVersion) {
+  return `${storageNamespace}:${encodeURIComponent(databaseName)}:v${databaseVersion}:costs`;
 }
 
 function validateDatabaseIdentity(databaseName, databaseVersion) {
@@ -81,96 +86,9 @@ function validateDatabaseIdentity(databaseName, databaseVersion) {
   }
 }
 
-// Validates only what the official spec actually documents for addCost()'s
-// input: sum is a number, currency/category/description are strings, and
-// currency must be one of the four required identifiers. Deliberately does
-// NOT add extra rules (e.g. sum > 0, non-empty strings) that the course
-// document does not state, so this stays compatible with a grader that only
-// relies on the documented types (see OQ-005 in docs/REQUIREMENTS.md).
-function validateCost(cost) {
-  if (cost === null || typeof cost !== 'object') {
-    throw new TypeError('cost must be an object.');
-  }
-
-  if (typeof cost.sum !== 'number' || !Number.isFinite(cost.sum)) {
-    throw new TypeError('cost.sum must be a finite number.');
-  }
-
-  if (!isSupportedCurrency(cost.currency)) {
-    throw new TypeError('cost.currency must be one of USD, ILS, GBP, EURO.');
-  }
-
-  if (typeof cost.category !== 'string') {
-    throw new TypeError('cost.category must be a string.');
-  }
-
-  if (typeof cost.description !== 'string') {
-    throw new TypeError('cost.description must be a string.');
-  }
-}
-
-// TEAM EXTENSION: guards getCostById/updateCost/deleteCost, all of which are
-// keyed by the generated id rather than by the required addCost() fields.
-function validateCostId(id) {
-  if (typeof id !== 'string' || id.trim() === '') {
-    throw new TypeError('id must be a non-empty string.');
-  }
-}
-
-// Confirms day/month/year actually form a real calendar date (e.g. rejects
-// 31 February) by letting the Date constructor normalize the value and
-// checking whether it rolled over into a different date than requested.
-function isRealCalendarDate(day, month, year) {
-  const candidate = new Date(0);
-
-  candidate.setFullYear(year, month - 1, day);
-  candidate.setHours(0, 0, 0, 0);
-
-  return (
-    candidate.getFullYear() === year &&
-    candidate.getMonth() === month - 1 &&
-    candidate.getDate() === day
-  );
-}
-
-// TEAM EXTENSION: full date/time validation used only by updateCost(), where
-// the Manage Costs UI lets a user edit the complete stored date/time rather
-// than only the auto-assigned original.
-function validateCostDate(date) {
-  if (date === null || typeof date !== 'object' || Array.isArray(date)) {
-    throw new TypeError('cost.date must be an object.');
-  }
-
-  const { day, month, year, hour, minute } = date;
-
-  if (
-    !Number.isInteger(day) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(year) ||
-    !Number.isInteger(hour) ||
-    !Number.isInteger(minute)
-  ) {
-    throw new TypeError('cost.date values must be integers.');
-  }
-
-  if (month < 1 || month > 12) {
-    throw new TypeError('cost.date.month must be an integer from 1 to 12.');
-  }
-
-  // Range checks above catch obviously-wrong values; this catches values
-  // that are individually in range but don't form a real date (31 Feb).
-  if (!isRealCalendarDate(day, month, year)) {
-    throw new TypeError('cost.date must be a real calendar date.');
-  }
-
-  if (hour < 0 || hour > 23) {
-    throw new TypeError('cost.date.hour must be an integer from 0 to 23.');
-  }
-
-  if (minute < 0 || minute > 59) {
-    throw new TypeError('cost.date.minute must be an integer from 0 to 59.');
-  }
-}
+// validateCost, validateCostId, and validateCostDate live in
+// costValidation.js so stored records and backup files are checked by
+// exactly the same rules as API input.
 
 // TEAM EXTENSION — combines both validators for updateCost()'s full payload.
 function validateEditableCost(cost) {
@@ -198,51 +116,8 @@ function validateReportArguments(currency, year, month) {
   }
 }
 
-// Malformed-storage recovery: if the stored value is missing, not valid
-// JSON, or not an array (e.g. corrupted by hand-editing localStorage or a
-// future incompatible format), this quietly falls back to an empty list
-// instead of throwing. The app should degrade to "no costs yet", not crash.
-function readCosts(storageKey) {
-  const storedValue = localStorage.getItem(storageKey);
-
-  if (storedValue === null) {
-    return [];
-  }
-
-  try {
-    const parsedValue = JSON.parse(storedValue);
-
-    return Array.isArray(parsedValue) ? parsedValue : [];
-  } catch {
-    return [];
-  }
-}
-
-// Persists the full cost list back to localStorage under storageKey.
-function writeCosts(storageKey, costs) {
-  localStorage.setItem(storageKey, JSON.stringify(costs));
-}
-
-// Returns a defensive copy of a stored cost (including its full internal
-// date/time) rather than the live object, so callers can freely read the
-// result without risk of accidentally mutating what is in localStorage.
-function copyStoredCost(cost) {
-  return {
-    id: cost.id,
-    sum: cost.sum,
-    currency: cost.currency,
-    category: cost.category,
-    description: cost.description,
-    // Full internal date/time, unlike toReportCost()'s { day }-only shape.
-    date: {
-      day: cost.date.day,
-      month: cost.date.month,
-      year: cost.date.year,
-      hour: cost.date.hour,
-      minute: cost.date.minute
-    }
-  };
-}
+// Defensive copy for callers, so they can never mutate stored records.
+const copyStoredCost = copyCostRecord;
 
 function toReportCost(cost) {
   return {
@@ -301,7 +176,10 @@ function calculateSameCurrencyTotal(costs, targetCurrency) {
 function openCostsDB(databaseName, databaseVersion) {
   validateDatabaseIdentity(databaseName, databaseVersion);
 
-  const storageKey = getStorageKey(databaseName, databaseVersion);
+  // Every method reads through the store, which throws a StorageError when
+  // the stored data is unavailable, damaged, or from a newer version, and
+  // refuses to save over such data. It never falls back to an empty list.
+  const store = createCostStore(getCostsStorageKey(databaseName, databaseVersion));
 
   return {
     /**
@@ -328,9 +206,7 @@ function openCostsDB(databaseName, databaseVersion) {
         description: cost.description,
         date: getCurrentDateParts()
       };
-      const costs = readCosts(storageKey);
-
-      writeCosts(storageKey, [...costs, storedCost]);
+      store.modifyCosts((costs) => [...costs, storedCost]);
 
       return copyStoredCost(storedCost);
     },
@@ -341,7 +217,7 @@ function openCostsDB(databaseName, databaseVersion) {
      *   date/time (unlike getReport()'s { day }-only report shape).
      */
     getAllCosts() {
-      return readCosts(storageKey).map(copyStoredCost);
+      return store.readCosts().map(copyStoredCost);
     },
 
     /**
@@ -353,7 +229,7 @@ function openCostsDB(databaseName, databaseVersion) {
     getCostById(id) {
       validateCostId(id);
 
-      const matchingCost = readCosts(storageKey).find((cost) => cost.id === id);
+      const matchingCost = store.readCosts().find((cost) => cost.id === id);
 
       return matchingCost ? copyStoredCost(matchingCost) : null;
     },
@@ -371,10 +247,9 @@ function openCostsDB(databaseName, databaseVersion) {
     updateCost(id, cost) {
       validateCostId(id);
 
-      const costs = readCosts(storageKey);
-      const costIndex = costs.findIndex((storedCost) => storedCost.id === id);
+      const costs = store.readCosts();
 
-      if (costIndex === -1) {
+      if (!costs.some((storedCost) => storedCost.id === id)) {
         return null;
       }
 
@@ -397,8 +272,9 @@ function openCostsDB(databaseName, databaseVersion) {
         }
       };
 
-      costs[costIndex] = updatedCost;
-      writeCosts(storageKey, costs);
+      store.modifyCosts((currentCosts) => currentCosts.map((storedCost) => {
+        return storedCost.id === id ? updatedCost : storedCost;
+      }));
 
       return copyStoredCost(updatedCost);
     },
@@ -413,16 +289,15 @@ function openCostsDB(databaseName, databaseVersion) {
     deleteCost(id) {
       validateCostId(id);
 
-      const costs = readCosts(storageKey);
-      const costIndex = costs.findIndex((storedCost) => storedCost.id === id);
+      const deletedCost = store.readCosts().find((storedCost) => storedCost.id === id);
 
-      if (costIndex === -1) {
+      if (!deletedCost) {
         return null;
       }
 
-      const [deletedCost] = costs.splice(costIndex, 1);
-
-      writeCosts(storageKey, costs);
+      store.modifyCosts((currentCosts) => {
+        return currentCosts.filter((storedCost) => storedCost.id !== id);
+      });
 
       return copyStoredCost(deletedCost);
     },
@@ -447,8 +322,8 @@ function openCostsDB(databaseName, databaseVersion) {
 
       validateReportArguments(currency, reportYear, reportMonth);
 
-      const matchingCosts = readCosts(storageKey).filter((cost) => {
-        return cost.date?.year === reportYear && cost.date?.month === reportMonth;
+      const matchingCosts = store.readCosts().filter((cost) => {
+        return cost.date.year === reportYear && cost.date.month === reportMonth;
       });
 
       // total is the only converted value; costs keep their own currency (R-036).
