@@ -13,7 +13,13 @@ export const storageErrorCodes = {
   // Stored data exists but cannot be used safely; it is kept untouched.
   damaged: 'damaged',
   // Stored data was written by a newer version of the app.
-  unsupportedVersion: 'unsupported-version'
+  unsupportedVersion: 'unsupported-version',
+  // Stored data changed (e.g. in another tab) between reading and saving;
+  // nothing was saved.
+  conflict: 'conflict',
+  // A replacement failed and the automatic rollback also failed; a copy of
+  // the earlier data is kept as previous data.
+  recoveryIncomplete: 'recovery-incomplete'
 };
 
 export class StorageError extends Error {

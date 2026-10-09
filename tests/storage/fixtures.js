@@ -5,6 +5,7 @@
  */
 export const appDataKey = 'cost-manager-pro:costsdb:v2:costs';
 export const appSnapshotKey = `${appDataKey}:previous`;
+export const appPendingSnapshotKey = `${appDataKey}:previous:pending`;
 export const originalAppKeys = {
   costs: 'cost-manager:costsdb:v2:costs',
   costsVersion1: 'cost-manager:costsdb:v1:costs',

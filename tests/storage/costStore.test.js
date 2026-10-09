@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCostStore } from '../../src/lib/storage/costStore.js';
 import {
   appDataKey,
+  appPendingSnapshotKey,
   appSnapshotKey,
   currentDocument,
   legacyCosts,
@@ -28,6 +29,19 @@ function failWritesTo(key, error = quotaError()) {
     }
 
     return realSetItem.call(this, itemKey, value);
+  });
+}
+
+// Simulates a browser that reports a different value than was written:
+// reads of the data key return 'unexpected' whenever the stored value is no
+// longer `originalValue`.
+function misreportWrittenData(originalValue) {
+  const realGetItem = Storage.prototype.getItem;
+
+  return vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function getItem(key) {
+    const value = realGetItem.call(this, key);
+
+    return key === appDataKey && value !== originalValue ? 'unexpected' : value;
   });
 }
 
@@ -197,15 +211,19 @@ describe('cost store', () => {
       const failure = failWritesTo(appDataKey);
 
       expect(() => store.modifyCosts((costs) => costs, now)).toThrow();
-      // The source is untouched and still readable; the safety copy exists.
+      // The source is untouched and still readable. Since the M1 hardening
+      // the safety copy is only staged, and is discarded when the data
+      // write fails, so no slot holds a stale copy.
       expect(localStorage.getItem(appDataKey)).toBe(legacyRaw);
-      expect(readSnapshot().rawValue).toBe(legacyRaw);
+      expect(localStorage.getItem(appSnapshotKey)).toBeNull();
+      expect(localStorage.getItem(appPendingSnapshotKey)).toBeNull();
 
       failure.mockRestore();
       store.modifyCosts((costs) => costs, now);
 
       expect(store.inspect().sourceSchemaVersion).toBe(1);
       expect(store.readCosts()).toEqual(legacyCosts);
+      expect(readSnapshot().rawValue).toBe(legacyRaw);
     });
 
     it('only takes the migration safety copy once', () => {
@@ -252,12 +270,14 @@ describe('cost store', () => {
       const before = currentDocument([makeCost()]);
 
       localStorage.setItem(appDataKey, before);
-      failWritesTo(appSnapshotKey);
+      // The safety copy is staged under the pending key first.
+      failWritesTo(appPendingSnapshotKey);
 
       expect(() =>
         store.replaceAllCosts([makeCost({ id: 'new' })], 'restore', now)
       ).toThrow(expect.objectContaining({ code: 'quota-exceeded' }));
       expect(localStorage.getItem(appDataKey)).toBe(before);
+      expect(localStorage.getItem(appSnapshotKey)).toBeNull();
     });
 
     it('leaves current data unchanged when writing the replacement fails', () => {
@@ -274,22 +294,11 @@ describe('cost store', () => {
 
     it('puts the previous value back when the written data cannot be verified', () => {
       const before = currentDocument([makeCost()]);
-      const realGetItem = Storage.prototype.getItem;
-      let dataReads = 0;
 
       localStorage.setItem(appDataKey, before);
-      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function getItem(key) {
-        if (key === appDataKey) {
-          dataReads += 1;
-
-          // The read-back after writing returns something else.
-          if (dataReads === 2) {
-            return 'unexpected';
-          }
-        }
-
-        return realGetItem.call(this, key);
-      });
+      // Once the new value has been written, reading it back returns
+      // something else.
+      misreportWrittenData(before);
 
       expect(() =>
         store.replaceAllCosts([makeCost({ id: 'new' })], 'restore', now)

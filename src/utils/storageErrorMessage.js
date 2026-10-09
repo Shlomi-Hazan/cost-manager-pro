@@ -16,7 +16,11 @@ const messages = {
   [storageErrorCodes.damaged]:
     'Your saved expenses cannot be read, so nothing was changed. Go to Settings, under "Your data", to download or recover them.',
   [storageErrorCodes.unsupportedVersion]:
-    'Your saved expenses were created by a newer version of Cost Manager Pro, so nothing was changed. Go to Settings, under "Your data", for options.'
+    'Your saved expenses were created by a newer version of Cost Manager Pro, so nothing was changed. Go to Settings, under "Your data", for options.',
+  [storageErrorCodes.conflict]:
+    'Your expenses were changed in another tab or window while this change was being saved, so nothing was changed. Please try again.',
+  [storageErrorCodes.recoveryIncomplete]:
+    'The change could not be completed or fully undone automatically. A copy of your earlier data is kept in Settings, under "Your data" as previous data. Download it before making other changes.'
 };
 
 export function getStorageErrorMessage(error) {
