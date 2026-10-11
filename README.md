@@ -6,11 +6,14 @@ Cost Manager Pro is a local-first personal expense manager. It records
 expenses in several currencies, shows where the money goes, and keeps your
 data in your own browser.
 
-> **Status: early independent development.** The app below works. Its
-> known limitations are listed openly, and the planned improvements are in
-> the [roadmap](docs/ROADMAP.md). It is **not** production-ready yet, and
-> this repository has **no public live demo** yet. A Vercel deployment is
-> prepared and waiting for approval.
+> **Status: early independent development.** The app below works and is
+> deployed on Vercel at https://cost-manager-pro.vercel.app. Its known
+> limitations are listed openly, and the planned improvements are in the
+> [roadmap](docs/ROADMAP.md). It is **not** production-ready.
+>
+> **Currency conversions use demonstration rates, not live market rates.**
+> Converted totals are for testing only and should not be used for financial
+> decisions. See [Financial accuracy](#financial-accuracy).
 
 ## What it does today
 
@@ -27,7 +30,8 @@ data in your own browser.
   of each expense are always kept.
 - **Exchange rates:** fetched from a configurable URL, validated, and
   cached. The default rates are **fixed sample values, not live market
-  rates**.
+  rates**, and the app says so next to every converted total and in
+  exports (see [Financial accuracy](#financial-accuracy)).
 - **Export:** reports and chart data to Excel (`.xlsx`) and PDF.
 - **Your data:** download a versioned backup file, restore it after a
   confirmation, and undo a restore. If saved data can't be read, it is
@@ -41,6 +45,9 @@ data in your own browser.
 These are the main ones; details are in
 [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md):
 
+- **Exchange rates are demonstration values**, not live market rates, so
+  every cross-currency total, chart slice, and export is for testing only.
+  Real rates are planned, not implemented.
 - English only, left-to-right only. English and Hebrew (RTL) are planned
   for v1.
 - Mobile layout is limited: navigation and the expense list don't fit
@@ -51,6 +58,30 @@ These are the main ones; details are in
   data → Download backup** regularly.
 - The Dashboard links to the other sections but shows no data yet.
 - Reports and charts need a manual "Generate" click.
+
+### Financial accuracy
+
+- **Built-in rates are samples.** The default source is a bundled file with
+  fixed values. It is not updated, has no date, and does not come from a
+  rates provider.
+- **Where this is disclosed.** Converted outputs show a "Demo exchange
+  rates" note: the monthly and yearly reports and the monthly and yearly
+  charts, but only when at least one amount was converted. Settings
+  explains the active source. Excel and PDF exports include the same
+  statement in the file.
+- **Custom sources are not verified.** If you configure your own rate
+  source, the note says "Exchange-rate source not verified". Cost Manager
+  Pro checks only the shape of the data; it cannot know where the rates come
+  from, how recent they are, or whether they match the market. No source is
+  ever labeled as verified.
+- **Known limit of the label.** The rates cache does not record which
+  source filled it, so the note follows the source configured now. Both
+  wordings are warnings, so a converted total is never shown without one.
+- **Calculations are unchanged:** this is a disclosure, not a fix. Amounts
+  can still show up to 6 decimals, and rounding is not yet defined.
+- **Planned, not implemented:** decimal arithmetic with `big.js`, a defined
+  rounding policy, and real, dated rates from the European Central Bank
+  through Frankfurter. See the [roadmap](docs/ROADMAP.md) (M2A and M2B).
 
 ## Tech stack
 
@@ -112,7 +143,7 @@ correctness, privacy, and accessibility. Planned milestones:
 | [`docs/LOCALIZATION.md`](docs/LOCALIZATION.md) | English and Hebrew / RTL requirements |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current architecture and direction |
 | [`docs/DATA_STORAGE.md`](docs/DATA_STORAGE.md) | Storage keys, format, migrations, backup and restore, safeguards |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | CI, Vercel preparation, deployment prerequisites |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | CI, Vercel deployment, what has and hasn't been verified in production |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architecture decision records |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, conventions, Definition of Done |
 | [`AGENTS.md`](AGENTS.md) | Rules for AI coding agents and contributors |

@@ -1,9 +1,9 @@
 # Cost Manager Pro — CI/CD and Deployment
 
-**Status (M1):** the repository is prepared for Vercel, but **no Vercel
-project exists and nothing has been deployed** from this repository.
-Connecting Vercel and the first deployment need separate approval
-(ADR-044).
+**Status:** deployed on Vercel at https://cost-manager-pro.vercel.app
+(ADR-044). The first deployment happened after M1 was merged (PR #2). See
+[§5](#5-production-smoke-test) for exactly what has and has not been
+verified in production.
 
 ## 1. Continuous integration (GitHub Actions)
 
@@ -49,8 +49,9 @@ that requires the CI check before merging to `main`. Recommended; see §4.
     production deployment stays live.
   - Settings in `vercel.json` take precedence over project settings in the
     dashboard.
-  - **This is configured but not yet verified**, because no Vercel build
-    has run.
+  - **Whether a failing check really blocks a Vercel deployment has not
+    been tested.** It is configured in `vercel.json`, but no failing build
+    has been deployed to try it.
 - **Future client-side routing:**
   - Any path that isn't a real file and isn't under `/assets/` is served
     `index.html`.
@@ -85,7 +86,25 @@ that requires the CI check before merging to `main`. Recommended; see §4.
 7. After the first deployment, run the smoke test in §5 on the production
    URL. Only then record the URL in the README.
 
-## 5. Production smoke test (after the first deployment)
+## 5. Production smoke test
+
+**Verified (2026-10-09 to 2026-10-11):**
+
+- The product owner completed seven basic production checks: loading the
+  app, adding an expense, persistence after a refresh, editing and deleting
+  expenses, reports and charts, downloading a backup, and viewing the app on
+  mobile.
+- Routing, checked with read-only requests against production: real files
+  (such as `/exchange-rates.json`) are served as-is, unknown routes fall back
+  to `index.html`, and a missing `/assets/...` file returns 404.
+
+**Not yet verified in production:** restoring a backup, undoing a restore,
+and deliberate failure scenarios (damaged data, full storage). These are
+covered by automated tests only. Production also still uses the **fixed
+sample exchange rates** (disclosed in the app since the pre-M2 hotfix).
+
+The full checklist below stays unchecked until each item is run on
+production.
 
 - [ ] The site loads at the root URL with no console errors; all assets
       load.

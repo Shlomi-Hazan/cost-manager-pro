@@ -1610,7 +1610,7 @@ risk.
 
 # ADR-044 — Vercel as the Hosting Target; GitHub Pages Workflow Retired
 
-**Status:** ACCEPTED (configuration only; not connected or deployed)  
+**Status:** ACCEPTED (implemented: deployed on Vercel after M1 was merged; see `DEPLOYMENT.md` for what is verified)  
 **Date:** 2026-10-09
 
 ## Decision
@@ -1644,6 +1644,78 @@ not deploy this repository correctly.
   provider and repository settings outside M1.
 - Nothing is deployed until the product owner approves connecting Vercel.
   See [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
+---
+
+# ADR-045 — Disclose Demonstration Exchange Rates (Pre-M2 Hotfix)
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-11
+
+## Decision
+
+Converted totals state which kind of rates they use:
+
+- the bundled default file, including a custom URL that resolves to it, is
+  **demonstration data**
+- any other source is **not verified**
+- no source is ever labeled verified
+
+The note appears beside converted totals on the monthly and yearly reports
+and charts (only when an amount was actually converted), in Settings, and
+inside Excel and PDF exports. All wording lives in one service.
+
+## Context
+
+The M2 audit found production still converts with the fixed sample rates
+from the course project. Those rates are 10.6% (ILS), 20.6% (GBP), and
+21.6% (EURO) away from the market values fetched on 2026-10-09, and nothing
+told users.
+
+## Alternatives
+
+- **Record the source in the rates cache** to label cached rates exactly.
+  Rejected for the hotfix: it changes the caching design, which belongs to
+  M2B.
+- **Show the note on every page.** Rejected: totals in a single currency use
+  no rates, so a warning there would be noise.
+
+## Consequences
+
+- Calculations, rates, storage, backups, and refresh behavior are unchanged.
+- **Known limit:** the label follows the source configured now. Cached rates
+  from a different source can be described with the other wording. Both are
+  warnings, so a converted total is never shown without one.
+- M2B replaces the demo source. Its design must keep a visible source and
+  date, and may then retire the "demonstration" wording.
+
+---
+
+# ADR-046 — M2 Direction: `big.js`, Frankfurter (ECB), Split into M2A and M2B
+
+**Status:** ACCEPTED (direction only; nothing is implemented)  
+**Date:** 2026-10-11
+
+## Decision
+
+Recorded from the product owner's review of the M2 audit:
+
+- **Decimal arithmetic:** `big.js` is selected. It is **not installed yet**,
+  and adding it needs its own PR.
+- **Rates provider:** Frankfurter, pinned to the European Central Bank's
+  reference rates, is the planned source. Not integrated.
+- **Delivery:** M2 is split into M2A and M2B. The exact split is confirmed
+  before each starts (the audit proposed M2A = money foundation, M2B =
+  conversion engine and live rates).
+- **Rounding policy:** **PROVISIONAL.** Candidate approaches must be compared
+  with tests before the policy is approved.
+
+## Consequences
+
+- Open product decisions from the M2 audit that this record does not settle
+  (currency list, historical-rate policy, stale threshold, custom sources,
+  zero and negative amounts) still need answers before M2A or M2B starts.
+- Until then, requirement statuses for CUR-5 and CUR-6 stay **Approved**.
 
 ---
 
@@ -1726,7 +1798,7 @@ milestone:
 |---|---|---|
 | OD-006 | Hosting provider for the live demo and how its storage stays separate from the original app | **Resolved in M1:** Vercel (ADR-044) and the `cost-manager-pro:` namespace (ADR-042). Deployment still needs approval |
 | OD-007 | What happens to `vanilla/db.js` and its tests (keep frozen or archive) | M1 or M7 |
-| OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | M2 |
+| OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | **Direction approved** (ADR-046): Frankfurter with ECB rates. Stale-rate handling and the privacy window for historical requests remain open (M2B) |
 | OD-009 | Migration from `EURO` to ISO `EUR`, and expanding the currency list | M2 |
 | OD-010 | Rounding policy and the rule for which calendar day an expense falls on | M2 |
 | OD-011 | i18n library (or `Intl` with an in-house catalog) | M3 |
