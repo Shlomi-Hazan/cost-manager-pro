@@ -83,11 +83,12 @@ Nothing marked **Approved** or **Optional** exists in the app today.
 |---|---|---|---|
 | CUR-1 | Supported currencies: USD, ILS, GBP, and EURO (non-ISO code kept from the course) | **Exists** | Moving to ISO `EUR` needs a data migration, planned for M2 |
 | CUR-2 | Convert totals into a chosen currency through one shared function | **Exists** | `src/utils/currency.js` |
-| CUR-3 | Exchange rates are fetched and validated before use; the last valid rates are cached | **Exists** | Fixed sample values (`public/exchange-rates.json`), **not real market rates** |
+| CUR-3 | Exchange rates are fetched and validated before use; the last valid rates are cached | **Exists** | Fixed sample values (`public/exchange-rates.json`), **not real market rates**. Disclosed on screen and in exports (CUR-8) |
 | CUR-4 | Choose a custom exchange-rate URL in Settings, tested before it is saved | **Exists** | |
-| CUR-5 | Real exchange rates with an "as of" date and a stale-rates warning | Approved | M2. The source must be free and need no secret key |
-| CUR-6 | Money shown with correct currency formatting and a defined rounding policy | Approved | M2. Today up to 6 decimals are shown |
+| CUR-5 | Real exchange rates with an "as of" date and a stale-rates warning | Approved | M2B. Planned provider: the European Central Bank's reference rates through Frankfurter (approved direction, **not implemented**). The source must be free and need no secret key |
+| CUR-6 | Money shown with correct currency formatting and a defined rounding policy | Approved | M2A. Planned: `big.js` for decimal arithmetic (selected, **not installed**). Rounding approaches will be compared with tests before the policy is approved. Today up to 6 decimals are shown |
 | CUR-7 | More currencies and a user-chosen base currency | Optional | |
+| CUR-8 | Converted outputs say what kind of rates they use: demonstration data (the bundled default) or an unverified custom source. Nothing is ever labeled verified | **Exists (pre-M2 hotfix)** | Shown on the monthly and yearly reports and charts, only when an amount was converted; explained in Settings; included in Excel and PDF exports. The label follows the source configured now, because the rates cache records no source. Calculations are unchanged |
 
 ## 7. Data, backup, and restore (DATA)
 
@@ -125,7 +126,7 @@ Nothing marked **Approved** or **Optional** exists in the app today.
 | PLAT-1 | Desktop and mobile have equal priority; every flow is fully usable at 360 px wide and up | Approved | M3/M4. Today navigation and the expense list do not work well on phones |
 | PLAT-2 | Supported browsers: current Chrome, Edge, Firefox, and Safari, including iOS Safari and Android Chrome | Approved | M7. Only Chrome was checked in the course era |
 | PLAT-3 | Shareable URLs for each section; refresh keeps you on the current page | Approved | M3. Today a refresh always returns to the Dashboard |
-| PLAT-4 | Public live demo | Approved | Vercel configuration prepared in M1 (ADR-044). **Not deployed yet**; needs separate approval |
+| PLAT-4 | Public live demo | **Exists** | Deployed on Vercel at https://cost-manager-pro.vercel.app (ADR-044). The product owner completed seven basic production checks. **Not yet verified in production:** restoring a backup, undoing a restore, and deliberate failure scenarios. See [`DEPLOYMENT.md`](DEPLOYMENT.md) §5 |
 
 ## 11. Localization and RTL (I18N)
 

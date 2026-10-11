@@ -8,8 +8,10 @@ work starts. **Approving one milestone never approves the next one**
 | Milestone | Title | Status |
 |---|---|---|
 | M0 | Project Independence & Governance | **Done** (PR #1, merged 2026-10-08) |
-| M1 | Reliability, Storage & Deployment | **In progress** (draft PR, awaiting review) |
-| M2 | Financial Accuracy & Currency Engine | Not started |
+| M1 | Reliability, Storage & Deployment | **Done** (PR #2, merged 2026-10-09; deployed to Vercel) |
+| Pre-M2 hotfix | Disclose demonstration exchange rates | **In progress** (draft PR) |
+| M2A | Financial Accuracy: money foundation (proposed scope) | Not started |
+| M2B | Financial Accuracy: currency engine and live rates (proposed scope) | Not started |
 | M3 | Design System & App Shell | Not started |
 | M4 | Expense Management Experience | Not started |
 | M5 | Personal Overview Dashboard | Not started |
@@ -76,8 +78,46 @@ Requirement IDs (`EXP-*`, `DATA-*`, and so on) are defined in
     (ADR-043).
   - See [`DATA_STORAGE.md`](DATA_STORAGE.md) and
     [`DEPLOYMENT.md`](DEPLOYMENT.md).
+- **Outcome:**
+  - PR #2 is merged, and the first Vercel deployment has happened
+    (https://cost-manager-pro.vercel.app).
+  - The product owner completed seven basic production checks: loading the
+    app, adding an expense, persistence after a refresh, editing and
+    deleting expenses, reports and charts, downloading a backup, and
+    viewing the app on mobile.
+  - **Not yet verified in production:** restoring a backup, undoing a
+    restore, and deliberate failure scenarios (damaged data, full storage).
+    These are covered by automated tests, not by a production check.
 
-## M2 — Financial Accuracy & Currency Engine
+## Pre-M2 hotfix — Disclose demonstration exchange rates
+
+- **Why:** the M2 audit found that production converts at the fixed sample
+  rates from the original course project (about 10% to 22% away from market
+  rates). Nothing told users.
+- **Scope (disclosure only):** a visible, accessible note beside converted
+  totals on reports and charts, an explanation in Settings, and a statement
+  inside Excel and PDF exports. The bundled default is always labeled
+  demonstration data; a custom source is labeled "not verified", never
+  verified.
+- **Not in scope:** real rates, any provider integration, decimal
+  arithmetic, rounding, `EURO` → `EUR`, migrations, or changes to
+  calculations, storage, backups, or rate refresh and caching.
+- **Status:** a draft PR is open for review. M2A and M2B have not started.
+
+## M2 — Financial Accuracy & Currency Engine (to be delivered as M2A and M2B)
+
+- **Approved direction (product owner, recorded 2026-10-11; nothing here is
+  implemented):**
+  - `big.js` is selected for decimal arithmetic.
+  - Frankfurter, pinned to the European Central Bank's reference rates, is
+    the planned rates provider.
+  - M2 is split into **M2A** and **M2B**. The split point is not final. The
+    M2 audit proposed M2A as the money foundation (decimal arithmetic,
+    rounding, formatting, validation, and the `EURO` → `EUR` migration) and
+    M2B as the conversion engine and live rates. Scope is confirmed before
+    each starts.
+  - Rounding approaches must be compared with tests before the policy is
+    approved (ADR-046).
 
 - **Goal:** Every amount the app shows is correct and clearly formatted.
 - **Expected scope:**
@@ -206,7 +246,8 @@ M0 was not allowed to change these. Each is assigned to a milestone, and the sta
 
 | Item | Target |
 |---|---|
-| Connect Vercel and run the first deployment, then the production smoke test ([`DEPLOYMENT.md`](DEPLOYMENT.md) §5) | Needs separate approval |
+| ~~Connect Vercel and run the first deployment~~ | **Done.** Seven basic production checks completed by the product owner |
+| Production restore, undo-restore, and deliberate failure checks ([`DEPLOYMENT.md`](DEPLOYMENT.md) §5) | Not yet verified in production |
 | Branch protection on `main` requiring CI; optionally require GitHub checks in Vercel before production | Repository/provider settings (product owner) |
 | Keep more than one previous-data copy; show storage usage before large restores | M7, or when needed |
 | Merge-style restore, and automatic or scheduled backup reminders | Not scheduled |

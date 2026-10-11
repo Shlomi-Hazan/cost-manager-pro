@@ -13,10 +13,12 @@ import {
 } from '@mui/material';
 // Shared UI components, then the exchange-rate service/settings modules.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
+import RateDisclosureAlert from '../components/common/RateDisclosureAlert.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import DataManagementSection from '../components/settings/DataManagementSection.jsx';
 import { refreshExchangeRates } from '../services/exchangeRatesService.js';
+import { getRateDisclosure } from '../services/rateDisclosureService.js';
 import {
   defaultExchangeRatesUrl,
   clearCustomExchangeRatesUrl,
@@ -172,6 +174,12 @@ function SettingsPage() {
               Validate a custom JSON source before making it active.
             </Typography>
           </Box>
+
+          {/* Pre-M2 hotfix: always says what the active source's rates are. */}
+          <RateDisclosureAlert
+            detail
+            disclosure={getRateDisclosure(settingsState.customUrl)}
+          />
 
           {feedback ? (
             <Alert severity={feedback.severity}>{feedback.message}</Alert>

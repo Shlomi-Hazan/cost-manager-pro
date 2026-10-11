@@ -138,9 +138,12 @@ function createValueCell(label, value) {
     });
   }
 
+  // The exchange-rate disclosure is a long sentence, so it wraps instead of
+  // running past the Value column.
   return textCell(value, {
     backgroundColor: isEmphasized ? '#DBEAFE' : undefined,
-    fontWeight: isEmphasized ? 'bold' : undefined
+    fontWeight: isEmphasized ? 'bold' : undefined,
+    wrap: label === 'Exchange rates'
   });
 }
 

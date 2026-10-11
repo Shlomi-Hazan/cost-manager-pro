@@ -51,9 +51,25 @@ function formatPdfCell(key, value) {
   return value;
 }
 
+// Pre-M2 hotfix: when a figure in an export depends on converted amounts,
+// the model carries the exchange-rate disclosure as one extra summary row
+// (and as metadata for the PDF). Existing rows, columns, and numeric values
+// are not touched; with no disclosure the model is returned unchanged.
+function withRateDisclosure(model, rateDisclosure) {
+  if (!rateDisclosure) {
+    return model;
+  }
+
+  return {
+    ...model,
+    summary: [...model.summary, ['Exchange rates', rateDisclosure.exportNote]],
+    metadata: { ...model.metadata, rateDisclosure: rateDisclosure.exportNote }
+  };
+}
+
 // Reshapes a Monthly Report + its raw costs into the generic { rows,
 // summary, columns } model both the Excel and PDF exporters consume.
-export function buildMonthlyReportExportModel({ report, costs }) {
+function createMonthlyReportExportModel({ report, costs }) {
   const rows = costs.map((cost) => ({
     day: cost.date.day,
     time: formatTime(cost.date),
@@ -92,7 +108,7 @@ export function buildMonthlyReportExportModel({ report, costs }) {
 
 // Same shape as buildMonthlyReportExportModel, minus the month field
 // (a yearly report row already carries its own full date).
-export function buildYearlyReportExportModel({ report, costs }) {
+function createYearlyReportExportModel({ report, costs }) {
   const rows = costs.map((cost) => ({
     date: formatDateForDisplay(cost.date),
     time: formatTime(cost.date),
@@ -125,7 +141,7 @@ export function buildYearlyReportExportModel({ report, costs }) {
 }
 
 // Adds each category's percentage share before shaping rows for export.
-export function buildPieChartExportModel({ report, chartData }) {
+function createPieChartExportModel({ report, chartData }) {
   const rows = addCategoryShare(chartData).map((entry) => ({
     category: entry.category,
     total: entry.total,
@@ -160,7 +176,7 @@ export function buildPieChartExportModel({ report, chartData }) {
 }
 
 // Reshapes yearlyResult's 12 monthly totals into the generic model shape.
-export function buildBarChartExportModel({ yearlyResult }) {
+function createBarChartExportModel({ yearlyResult }) {
   const rows = yearlyResult.monthlyTotals.map((entry) => ({
     month: entry.label,
     total: entry.total,
@@ -196,6 +212,24 @@ export function buildBarChartExportModel({ yearlyResult }) {
     columns: ['Month', 'Total', 'Currency'],
     rows
   };
+}
+
+// Public builders: `rateDisclosure` (from rateDisclosureService.js) is
+// optional and only passed when the report or chart used converted amounts.
+export function buildMonthlyReportExportModel({ rateDisclosure = null, ...input }) {
+  return withRateDisclosure(createMonthlyReportExportModel(input), rateDisclosure);
+}
+
+export function buildYearlyReportExportModel({ rateDisclosure = null, ...input }) {
+  return withRateDisclosure(createYearlyReportExportModel(input), rateDisclosure);
+}
+
+export function buildPieChartExportModel({ rateDisclosure = null, ...input }) {
+  return withRateDisclosure(createPieChartExportModel(input), rateDisclosure);
+}
+
+export function buildBarChartExportModel({ rateDisclosure = null, ...input }) {
+  return withRateDisclosure(createBarChartExportModel(input), rateDisclosure);
 }
 
 export function getModelRowsForPdf(model) {

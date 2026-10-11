@@ -31,14 +31,32 @@ function addTitle(doc, title) {
   doc.text(title, 40, 68);
 }
 
-// Prints each summary line and returns the y position content can resume at.
+// A4 is 595 pt wide; text starts at 40 pt, leaving 515 pt before the
+// right margin. Long lines (the exchange-rate disclosure) wrap inside it.
+const metadataTextWidth = 515;
+
+// Prints each summary line and returns the y position content can resume
+// at. A line that fits on one row behaves exactly as before.
 function addMetadata(doc, lines, startY = 94) {
   doc.setFontSize(10);
-  lines.forEach((line, index) => {
-    doc.text(line, 40, startY + index * 16);
+  let y = startY;
+
+  lines.forEach((line) => {
+    doc.splitTextToSize(line, metadataTextWidth).forEach((wrappedLine) => {
+      doc.text(wrappedLine, 40, y);
+      y += 16;
+    });
   });
 
-  return startY + lines.length * 16 + 12;
+  return y + 12;
+}
+
+// Pre-M2 hotfix: a report or chart that used converted amounts says so in
+// the file itself, so it is not misleading when read apart from the app.
+function getRateDisclosureLines(model) {
+  return model.metadata.rateDisclosure
+    ? [`Exchange rates: ${model.metadata.rateDisclosure}`]
+    : [];
 }
 
 // jsPDF's own output() call, isolated so callers don't need to know the
@@ -64,7 +82,8 @@ function getChartMetadataLines(model) {
       `Period: ${model.metadata.periodLabel}`,
       `Currency: ${model.metadata.currency}`,
       `Total: ${model.metadata.totalLabel}`,
-      `Categories: ${model.metadata.categoryCount}`
+      `Categories: ${model.metadata.categoryCount}`,
+      ...getRateDisclosureLines(model)
     ];
   }
 
@@ -72,7 +91,8 @@ function getChartMetadataLines(model) {
     `Year: ${model.metadata.year}`,
     `Currency: ${model.metadata.currency}`,
     `Annual total: ${model.metadata.annualTotalLabel}`,
-    `Months with costs: ${model.metadata.monthsWithCosts}`
+    `Months with costs: ${model.metadata.monthsWithCosts}`,
+    ...getRateDisclosureLines(model)
   ];
 }
 
@@ -130,7 +150,8 @@ export async function createReportPdfBuffer(model) {
       : `Year: ${model.metadata.year}`,
     `Report currency: ${model.metadata.currency}`,
     `Total: ${model.metadata.totalLabel}`,
-    `Number of costs: ${model.metadata.numberOfCosts}`
+    `Number of costs: ${model.metadata.numberOfCosts}`,
+    ...getRateDisclosureLines(model)
   ]);
 
   if (model.rows.length === 0) {

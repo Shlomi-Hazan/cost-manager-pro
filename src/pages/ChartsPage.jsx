@@ -30,6 +30,7 @@ import {
 } from 'recharts';
 // Shared UI components, then local constants/db/services/utils below.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
+import RateDisclosureAlert from '../components/common/RateDisclosureAlert.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import { supportedCurrencies } from '../constants/currencies.js';
@@ -39,6 +40,7 @@ import {
   getCachedExchangeRates,
   refreshExchangeRates
 } from '../services/exchangeRatesService.js';
+import { getRateDisclosureForCosts } from '../services/rateDisclosureService.js';
 import { aggregateCostsByCategory } from '../utils/chartAggregation.js';
 import YearlyBarChartSection from '../components/charts/YearlyBarChartSection.jsx';
 // TEAM EXTENSION: Excel/PDF export helpers for the Pie Chart data.
@@ -270,9 +272,15 @@ function ChartsPage() {
         getCachedExchangeRates()
       );
 
+      // The disclosure is captured with the result so it always describes
+      // the rates this chart was actually computed with.
       setChartResult({
         report,
-        chartData
+        chartData,
+        rateDisclosure: getRateDisclosureForCosts(
+          report.costs,
+          report.total.currency
+        )
       });
       setHasGenerated(true);
     } catch (error) {
@@ -288,6 +296,7 @@ function ChartsPage() {
   function buildCurrentExportModel() {
     return buildPieChartExportModel({
       chartData,
+      rateDisclosure: chartResult.rateDisclosure,
       report: chartResult.report
     });
   }
@@ -483,6 +492,9 @@ function ChartsPage() {
                 Chart currency: {chartResult.report.total.currency}
               </Typography>
             </Box>
+
+            {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
+            <RateDisclosureAlert disclosure={chartResult.rateDisclosure} />
 
             {exportErrorMessage ? (
               <Alert severity="error">{exportErrorMessage}</Alert>

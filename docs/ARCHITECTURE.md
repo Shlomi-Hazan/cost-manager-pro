@@ -21,7 +21,7 @@ recorded in [`DECISIONS.md`](DECISIONS.md).
 | Export | `write-excel-file` (XLSX), `jspdf` with `jspdf-autotable` (PDF). Both load only when an export is used |
 | Tests | Vitest 4 with jsdom, Testing Library |
 | Lint | ESLint 10 (flat config) |
-| CI/CD | GitHub Actions `ci.yml` (lint, test, build on PRs to `main` and pushes to `main`). Vercel configuration in `vercel.json`; **not connected or deployed yet**. See [`DEPLOYMENT.md`](DEPLOYMENT.md) |
+| CI/CD | GitHub Actions `ci.yml` (lint, test, build on PRs to `main` and pushes to `main`). Deployed on Vercel (`vercel.json`) at https://cost-manager-pro.vercel.app. See [`DEPLOYMENT.md`](DEPLOYMENT.md) |
 
 There is no backend, no authentication, no router, and no global state
 library.
@@ -118,6 +118,14 @@ Since M1:
 Remaining limitations are listed in [`DATA_STORAGE.md`](DATA_STORAGE.md) §8.
 
 ## 5. Exchange rates
+
+> **Rate disclosure (pre-M2 hotfix):** the default rates are fixed sample
+> values. `src/services/rateDisclosureService.js` classifies the active
+> source (bundled default, or unverified custom) and holds all the wording.
+> `RateDisclosureAlert` shows it beside converted outputs, and the export
+> models add it to Excel and PDF. It is derived from the configured source
+> only, because the cache records no source. It never changes how rates are
+> fetched, cached, or applied.
 
 1. `main.jsx` refreshes rates once at startup. A failure is ignored without
    telling the user.
