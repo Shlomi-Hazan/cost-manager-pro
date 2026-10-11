@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 // Shared UI components, then the required report/currency/db modules.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
+import RateDisclosureAlert from '../components/common/RateDisclosureAlert.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import SortableReportTable from '../components/reports/SortableReportTable.jsx';
@@ -22,6 +23,7 @@ import { useReportSorting } from '../hooks/useReportSorting.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
 import { buildDetailedYearlyReport } from '../services/detailedReportsService.js';
 import { refreshExchangeRates } from '../services/exchangeRatesService.js';
+import { getRateDisclosureForCosts } from '../services/rateDisclosureService.js';
 // TEAM EXTENSION: Excel/PDF export helpers for this yearly report.
 import * as excelExportService from '../services/export/excelExportService.js';
 import {
@@ -99,6 +101,8 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
   const [filters, setFilters] = useState(getCurrentFilters);
   const [errors, setErrors] = useState({});
   const [report, setReport] = useState(null);
+  // Which rates the generated report's converted total used (null when no conversion happened).
+  const [rateDisclosure, setRateDisclosure] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [exportErrorMessage, setExportErrorMessage] = useState('');
   const [exportingAction, setExportingAction] = useState(null);
@@ -129,6 +133,7 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
     setErrorMessage('');
     setExportErrorMessage('');
     setReport(null);
+    setRateDisclosure(null);
     setHasGenerated(false);
     resetSort();
   }
@@ -143,6 +148,7 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
     setErrorMessage('');
     setExportErrorMessage('');
     setReport(null);
+    setRateDisclosure(null);
     setHasGenerated(false);
 
     if (!validation.isValid) {
@@ -168,6 +174,9 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
       );
 
       setReport(nextReport);
+      setRateDisclosure(
+        getRateDisclosureForCosts(nextReport.costs, nextReport.total.currency)
+      );
       setHasGenerated(true);
     } catch (error) {
       // A failed generation clears any previous result rather than leaving
@@ -182,6 +191,7 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
   function buildCurrentExportModel() {
     return buildYearlyReportExportModel({
       costs: sortedCosts,
+      rateDisclosure,
       report
     });
   }
@@ -337,6 +347,9 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
                 {report.total.currency}
               </Typography>
             </Box>
+
+            {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
+            <RateDisclosureAlert disclosure={rateDisclosure} />
 
             {exportErrorMessage ? (
               <Alert severity="error">{exportErrorMessage}</Alert>

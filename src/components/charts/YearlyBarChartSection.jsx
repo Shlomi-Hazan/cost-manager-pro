@@ -32,10 +32,12 @@ import {
 } from 'recharts';
 // Shared UI components, then local constants/db/services/utils below.
 import LoadingButtonLabel from '../common/LoadingButtonLabel.jsx';
+import RateDisclosureAlert from '../common/RateDisclosureAlert.jsx';
 import SectionCard from '../common/SectionCard.jsx';
 import { supportedCurrencies } from '../../constants/currencies.js';
 import { costsDatabase } from '../../lib/costsDatabase.js';
 import { refreshExchangeRates } from '../../services/exchangeRatesService.js';
+import { getRateDisclosureForCosts } from '../../services/rateDisclosureService.js';
 // TEAM EXTENSION: Excel/PDF export helpers for the yearly bar chart data.
 import * as excelExportService from '../../services/export/excelExportService.js';
 import { buildBarChartExportModel } from '../../services/export/exportModels.js';
@@ -174,9 +176,15 @@ function YearlyBarChartSection() {
         validation.chartYear
       );
 
+      // Rates are only used if some cost of this year is in another currency.
+      const yearCosts = costsDatabase
+        .getAllCosts()
+        .filter((cost) => cost.date.year === validation.chartYear);
+
       setYearlyResult({
         currency: filters.currency,
         monthlyTotals,
+        rateDisclosure: getRateDisclosureForCosts(yearCosts, filters.currency),
         year: validation.chartYear
       });
       setHasGenerated(true);
@@ -193,7 +201,10 @@ function YearlyBarChartSection() {
 
   // Shared shape for both export functions below.
   function buildCurrentExportModel() {
-    return buildBarChartExportModel({ yearlyResult });
+    return buildBarChartExportModel({
+      rateDisclosure: yearlyResult.rateDisclosure,
+      yearlyResult
+    });
   }
 
   // TEAM EXTENSION: exports the current chart's data as a real .xlsx file.
@@ -361,6 +372,9 @@ function YearlyBarChartSection() {
                 Chart currency: {yearlyResult.currency}
               </Typography>
             </Box>
+
+            {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
+            <RateDisclosureAlert disclosure={yearlyResult.rateDisclosure} />
 
             {exportErrorMessage ? (
               <Alert severity="error">{exportErrorMessage}</Alert>
