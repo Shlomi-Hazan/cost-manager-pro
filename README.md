@@ -52,8 +52,10 @@ These are the main ones; details are in
   for v1.
 - Mobile layout is limited: navigation and the expense list don't fit
   small screens well.
-- Amounts can show up to 6 decimal places. Money formatting and a rounding
-  policy are planned.
+- Totals are rounded once, half away from zero, to the currency's two
+  decimals (a total of three 0.333 costs shows 1.00 while each cost shows
+  0.333, so shown parts may not add up to the shown total). Stored amounts
+  are never rounded.
 - Data lives only in this browser on this device. Use **Settings → Your
   data → Download backup** regularly.
 - The Dashboard links to the other sections but shows no data yet.
@@ -77,11 +79,11 @@ These are the main ones; details are in
 - **Known limit of the label.** The rates cache does not record which
   source filled it, so the note follows the source configured now. Both
   wordings are warnings, so a converted total is never shown without one.
-- **Calculations are unchanged:** this is a disclosure, not a fix. Amounts
-  can still show up to 6 decimals, and rounding is not yet defined.
-- **Planned, not implemented:** decimal arithmetic with `big.js`, a defined
-  rounding policy, and real, dated rates from the European Central Bank
-  through Frankfurter. See the [roadmap](docs/ROADMAP.md) (M2A and M2B).
+- **Rates are unchanged:** this is a disclosure, not a fix. Calculations now
+  use exact decimals with one rounding at display (ADR-047), but the rates are
+  still demonstration values.
+- **Planned, not implemented:** real, dated rates from the European Central
+  Bank through Frankfurter. See the [roadmap](docs/ROADMAP.md) (M2A and M2B).
 
 ## Tech stack
 

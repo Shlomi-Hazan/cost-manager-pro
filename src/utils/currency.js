@@ -5,6 +5,7 @@
  * code reuse identical, independently-tested logic instead of re-deriving it.
  */
 import { supportedCurrencies } from '../constants/currencies.js';
+import { amountToNumber, convertDecimalAmount } from '../lib/money/decimal.js';
 
 /**
  * @param {string} currency - Currency identifier to check.
@@ -87,5 +88,11 @@ export function convertCurrency(amount, sourceCurrency, targetCurrency, rates) {
 
   const validatedRates = validateExchangeRates(rates);
 
-  return (amount / validatedRates[sourceCurrency]) * validatedRates[targetCurrency];
+  // M2A.2: computed exactly (one division, no floating-point intermediates);
+  // the Number is produced only at this legacy return boundary. Financial
+  // code should use convertMoney() in src/lib/money/money.js, which keeps
+  // the exact decimal string.
+  return amountToNumber(
+    convertDecimalAmount(amount, validatedRates[sourceCurrency], validatedRates[targetCurrency])
+  );
 }

@@ -5,8 +5,8 @@
  * no chart-library code — so it can be unit tested independently and reused
  * by both the on-screen chart and its Excel/PDF export.
  */
-import { isSupportedCurrency, convertCurrency } from './currency.js';
-import { getCategoryDisplayName, getCategoryKey } from './category.js';
+import { buildCategoryFinancials } from '../lib/money/financials.js';
+import { isSupportedCurrency } from './currency.js';
 
 function validateCostForAggregation(cost) {
   if (cost === null || typeof cost !== 'object') {
@@ -48,32 +48,13 @@ export function aggregateCostsByCategory(costs, targetCurrency, rates) {
     throw new TypeError('targetCurrency must be one of USD, ILS, GBP, EURO.');
   }
 
-  const totalsByCategory = new Map();
+  costs.forEach(validateCostForAggregation);
 
-  costs.forEach((cost) => {
-    validateCostForAggregation(cost);
-
-    // Rates are only required once a cost actually needs converting; a
-    // same-currency month can still be charted with no rates cache at all.
-    if (cost.currency !== targetCurrency && (rates === null || rates === undefined)) {
-      throw new Error(
-        'Exchange rates are required for mixed-currency chart aggregation.'
-      );
-    }
-
-    const value =
-      cost.currency === targetCurrency
-        ? cost.sum
-        : convertCurrency(cost.sum, cost.currency, targetCurrency, rates);
-
-    const categoryKey = getCategoryKey(cost.category);
-    const currentCategory = totalsByCategory.get(categoryKey);
-
-    totalsByCategory.set(categoryKey, {
-      category: currentCategory?.category ?? getCategoryDisplayName(cost.category),
-      total: (currentCategory?.total ?? 0) + value
-    });
-  });
-
-  return Array.from(totalsByCategory.values());
+  // M2A.2: the exact decimal calculation is shared with the charts and
+  // exports (src/lib/money/financials.js). This legacy shape keeps a Number
+  // `total`, produced only here at the boundary, from the exact sum.
+  return buildCategoryFinancials(costs, targetCurrency, rates ?? null).entries.map((entry) => ({
+    category: entry.category,
+    total: entry.total
+  }));
 }

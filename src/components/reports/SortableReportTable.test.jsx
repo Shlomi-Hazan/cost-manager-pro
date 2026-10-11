@@ -97,7 +97,7 @@ describe('SortableReportTable', () => {
 
     expect(screen.getByText('car')).toBeInTheDocument();
     expect(screen.getByText('Shopping')).toBeInTheDocument();
-    expect(screen.getByText('25.5')).toBeInTheDocument();
+    expect(screen.getByText('25.50')).toBeInTheDocument();
     expect(screen.getByText('EURO')).toBeInTheDocument();
     expect(screen.queryByText('cost-1')).not.toBeInTheDocument();
   });

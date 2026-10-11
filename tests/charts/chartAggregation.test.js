@@ -166,6 +166,9 @@ describe('chart aggregation', () => {
     ).toThrow('Exchange rates');
   });
 
+  // M2A.2 (Policy B): this test used to pin the floating-point artifact
+  // 0.30000000000000004. Amounts are now summed as exact decimals, so 0.1 +
+  // 0.2 is exactly 0.3. Nothing is rounded: the exact value is kept.
   it('preserves decimal precision without rounding', () => {
     expect(
       aggregateCostsByCategory(
@@ -186,7 +189,7 @@ describe('chart aggregation', () => {
     ).toEqual([
       {
         category: 'Food',
-        total: 0.30000000000000004
+        total: 0.3
       }
     ]);
   });

@@ -143,7 +143,7 @@ describe('ManageCostsPage', () => {
     expect(within(rows[0]).getByText('09:05')).toBeInTheDocument();
     expect(within(rows[0]).getByText('Lunch')).toBeInTheDocument();
     expect(within(rows[0]).getByText('Food')).toBeInTheDocument();
-    expect(within(rows[0]).getByText('100')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('100.00')).toBeInTheDocument();
     expect(within(rows[0]).getByText('USD')).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
@@ -250,7 +250,7 @@ describe('ManageCostsPage', () => {
     expect(within(row).getByText('04/09/2026')).toBeInTheDocument();
     expect(within(row).getByText('09:07')).toBeInTheDocument();
     expect(within(row).getByText('Updated lunch')).toBeInTheDocument();
-    expect(within(row).getByText('135.5')).toBeInTheDocument();
+    expect(within(row).getByText('135.50')).toBeInTheDocument();
     expect(within(row).getByText('GBP')).toBeInTheDocument();
   });
 
@@ -414,7 +414,7 @@ describe('ManageCostsPage', () => {
     expect(within(dialog).getByText(/This action cannot be undone/)).toBeInTheDocument();
     expect(within(dialog).getByText('Train')).toBeInTheDocument();
     expect(within(dialog).getByText('Travel')).toBeInTheDocument();
-    expect(within(dialog).getByText('50 GBP')).toBeInTheDocument();
+    expect(within(dialog).getByText('50.00 GBP')).toBeInTheDocument();
     expect(within(dialog).getByText('24/08/2026')).toBeInTheDocument();
     expect(within(dialog).getByText('16:37')).toBeInTheDocument();
   });

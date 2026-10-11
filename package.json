@@ -15,6 +15,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.3.1",
     "@mui/material": "^9.3.1",
+    "big.js": "7.0.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "react": "^19.2.8",

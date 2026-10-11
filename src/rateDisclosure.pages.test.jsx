@@ -140,7 +140,7 @@ describe('exchange-rate disclosure on converted outputs', () => {
       const section = await generate();
 
       // 100 USD + 34 ILS at the sample 3.4 rate: unchanged calculation.
-      expect(within(section).getByText(/^Total: 110 USD/)).toBeInTheDocument();
+      expect(within(section).getByText(/^Total: 110.00 USD/)).toBeInTheDocument();
       expectDemoDisclosureIn(section);
     });
 
@@ -149,7 +149,7 @@ describe('exchange-rate disclosure on converted outputs', () => {
 
       const section = await generate();
 
-      expect(within(section).getByText(/^Total: 120 USD/)).toBeInTheDocument();
+      expect(within(section).getByText(/^Total: 120.00 USD/)).toBeInTheDocument();
       expectNoDisclosure();
     });
 
@@ -160,7 +160,7 @@ describe('exchange-rate disclosure on converted outputs', () => {
 
       const section = await generate();
 
-      expect(within(section).getByText(/^Total: 110 USD/)).toBeInTheDocument();
+      expect(within(section).getByText(/^Total: 110.00 USD/)).toBeInTheDocument();
       expectDemoDisclosureIn(section);
     });
 
@@ -235,7 +235,7 @@ describe('exchange-rate disclosure on converted outputs', () => {
 
       const section = await generate();
 
-      expect(within(section).getByText(/^Total: 110 USD/)).toBeInTheDocument();
+      expect(within(section).getByText(/^Total: 110.00 USD/)).toBeInTheDocument();
       expectDemoDisclosureIn(section);
     });
 

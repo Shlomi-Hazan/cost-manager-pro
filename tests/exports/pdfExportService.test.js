@@ -104,10 +104,12 @@ describe('pdfExportService', () => {
     expect(text.startsWith('%PDF-')).toBe(true);
     expect(text).toContain('Monthly Report');
     expect(text).toContain('Period: August 2026');
-    expect(text).toContain('Total: 127.352941 USD');
+    // M2A.2 (Policy B): a computed total is rounded once to the currency's minor unit.
+    expect(text).toContain('Total: 127.35 USD');
     expect(text).toContain('Number of costs: 2');
-    expect(text).toContain('7.352941');
-    expect(text).not.toContain('7.352941176470589');
+    // A stored original sum is shown as stored, never rounded or truncated.
+    expect(text).toContain('7.352941176470589');
+    expect(text).not.toContain('7.352941 ');
     expect(text.indexOf('large')).toBeLessThan(text.indexOf('small'));
   });
 
@@ -125,8 +127,8 @@ describe('pdfExportService', () => {
     expect(text).toContain('Yearly Report');
     expect(text).toContain('Year: 2026');
     expect(text).toContain('02/08/2026');
-    expect(text).toContain('7.352941');
-    expect(text).not.toContain('7.352941176470589');
+    expect(text).toContain('7.352941176470589');
+    expect(text).toContain('Total: 7.35 USD');
   });
 
   it('creates a Pie chart PDF with supporting data and no-data handling', async () => {
@@ -159,7 +161,7 @@ describe('pdfExportService', () => {
     });
     const text = decodePdf(await createChartPdfBuffer(model, null));
 
-    expect(text).toContain('7.352941');
+    expect(text).toContain('7.35');
     expect(text).toContain('42.4%');
     expect(text).not.toContain('7.352941176470589');
   });
@@ -185,7 +187,7 @@ describe('pdfExportService', () => {
     expect(text).toContain('Yearly 12-Month Bar Chart');
     expect(text).toContain('Month 1');
     expect(text).toContain('Month 12');
-    expect(text).toContain('7.352941');
+    expect(text).toContain('7.35');
     expect(text).not.toContain('7.352941176470589');
   });
 });

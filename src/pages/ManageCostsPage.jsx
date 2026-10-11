@@ -39,7 +39,7 @@ import {
   parseDateInput,
   parseTimeInput
 } from '../utils/dateTime.js';
-import { formatDisplayAmount } from '../utils/amountFormat.js';
+import { formatStoredAmount } from '../lib/money/format.js';
 import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
@@ -380,7 +380,7 @@ function ManageCostsPage() {
                     <TableCell>{cost.description}</TableCell>
                     <TableCell>{cost.category}</TableCell>
                     <TableCell align="right">
-                      {formatDisplayAmount(cost.sum)}
+                      {formatStoredAmount(cost.sum, cost.currency)}
                     </TableCell>
                     <TableCell>{cost.currency}</TableCell>
                     <TableCell align="right">
@@ -590,7 +590,7 @@ function ManageCostsPage() {
               <Typography>
                 Sum:{' '}
                 <strong>
-                  {formatDisplayAmount(deleteCost.sum)} {deleteCost.currency}
+                  {formatStoredAmount(deleteCost.sum, deleteCost.currency)} {deleteCost.currency}
                 </strong>
               </Typography>
               {/* Date/time shown last, same order as the table columns. */}

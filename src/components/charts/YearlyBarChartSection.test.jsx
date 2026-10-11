@@ -108,7 +108,7 @@ function expectMonthTotal(monthName, total, currency) {
   const row = within(table).getByRole('row', { name: new RegExp(monthName) });
 
   expect(within(row).getByText(monthName)).toBeInTheDocument();
-  expect(within(row).getByText(String(total))).toBeInTheDocument();
+  expect(within(row).getByText(Number(total).toFixed(2))).toBeInTheDocument();
   expect(within(row).getByText(currency)).toBeInTheDocument();
 }
 
@@ -157,9 +157,9 @@ describe('YearlyBarChartSection', () => {
 
   it('formats positive bar labels and suppresses zero labels', () => {
     expect(formatPositiveBarValueLabel(Number('17.352941176470589'))).toBe(
-      '17.352941'
+      '17.35'
     );
-    expect(formatPositiveBarValueLabel(20)).toBe('20');
+    expect(formatPositiveBarValueLabel(20)).toBe('20.00');
     expect(formatPositiveBarValueLabel(0)).toBe('');
   });
 
@@ -322,7 +322,7 @@ describe('YearlyBarChartSection', () => {
     expect(screen.getByText('No costs found for this year.')).toBeInTheDocument();
     expect(getYearlyTotalRows()).toHaveLength(12);
     expect(
-      getYearlyTotalRows().every((row) => row.cells[1].textContent === '0')
+      getYearlyTotalRows().every((row) => row.cells[1].textContent === '0.00')
     ).toBe(true);
   });
 

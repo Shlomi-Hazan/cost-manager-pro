@@ -7,6 +7,7 @@ import {
   TableRow,
   TableSortLabel
 } from '@mui/material';
+import { formatStoredAmount } from '../../lib/money/format.js';
 /*
  * TEAM EXTENSION: the shared sortable table used by both the Monthly and
  * Yearly report pages. `dateMode` is the only thing that differs between
@@ -23,16 +24,6 @@ const dateModes = {
   monthly: 'monthly',
   yearly: 'yearly'
 };
-
-// Whole numbers display with no decimals; converted amounts keep up to 6
-// fraction digits so small currency differences remain visible.
-function formatAmount(amount) {
-  return Number.isInteger(amount)
-    ? String(amount)
-    : amount.toLocaleString('en-US', {
-        maximumFractionDigits: 6
-      });
-}
 
 // "Day" matches the required getReport() report-item shape; "Date" is used
 // only for the team's own Yearly Report, where rows span 12 months.
@@ -154,7 +145,7 @@ function SortableReportTable({
               <TableCell>{formatTime(cost.date)}</TableCell>
               <TableCell>{cost.description}</TableCell>
               <TableCell>{cost.category}</TableCell>
-              <TableCell align="right">{formatAmount(cost.sum)}</TableCell>
+              <TableCell align="right">{formatStoredAmount(cost.sum, cost.currency)}</TableCell>
               <TableCell>{cost.currency}</TableCell>
             </TableRow>
           ))}
