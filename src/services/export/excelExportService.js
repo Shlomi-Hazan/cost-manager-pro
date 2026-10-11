@@ -6,6 +6,7 @@
  * amountFormatPattern), so the exported file remains usable for further
  * calculation, not just visual inspection.
  */
+import { normalizeAmount } from '../../lib/money/decimal.js';
 import { downloadBlob } from './downloadService.js';
 
 // One sheet name per export type; also used as this module's rowsSheetName.
@@ -21,6 +22,43 @@ const sheetNames = {
 // entered with more precision are shown, not hidden).
 const amountFormatPattern = '#,##0.00######';
 const percentageFormatPattern = '0.0%';
+
+/*
+ * Original (stored) amounts are written as real numbers and never rounded, so
+ * a tiny or long stored amount must not LOOK like zero or like a shorter
+ * number. The shared amount format shows at most eight decimals, so a stored
+ * amount with more decimals gets its own exact-digit format (Excel allows up
+ * to 30 decimals), and one beyond that a scientific format. Excel itself can
+ * only keep and show about 15 significant digits and cannot represent
+ * magnitudes below about 2.2e-308; a workbook with such an amount says so in
+ * a summary note instead of turning the cell into text.
+ */
+const amountDisplayDecimals = 8;
+const excelMaxFormatDecimals = 30;
+const excelSignificantDigits = 15;
+const excelSmallestPositive = 2.2250738585072014e-308;
+const precisionNote =
+  'Some original amounts have more precision than Excel can store or show (about 15 significant digits). The stored values are kept exactly in Cost Manager Pro; Excel may display fewer digits.';
+
+// Chooses the number format of one stored amount and whether Excel can hold
+// it faithfully. Reads the exact decimal text, never a rounded value.
+function getStoredAmountPresentation(value) {
+  const canonical = normalizeAmount(value);
+  const fractionLength = canonical.split('.')[1]?.length ?? 0;
+  const significantDigits = canonical.replace(/[-.]/g, '').replace(/^0+/, '').length;
+  const exceedsExcel =
+    significantDigits > excelSignificantDigits ||
+    (value !== 0 && Math.abs(value) < excelSmallestPositive);
+  let format = amountFormatPattern;
+
+  if (fractionLength > excelMaxFormatDecimals) {
+    format = `0.${'0'.repeat(Math.max(1, Math.min(significantDigits, excelSignificantDigits) - 1))}E+00`;
+  } else if (fractionLength > amountDisplayDecimals) {
+    format = `#,##0.${'0'.repeat(fractionLength)}`;
+  }
+
+  return { format, exceedsExcel };
+}
 const yearFormatPattern = '0';
 
 // Shared color palette for every cell style in this file.
@@ -145,13 +183,20 @@ function createValueCell(label, value) {
   return textCell(value, {
     backgroundColor: isEmphasized ? '#DBEAFE' : undefined,
     fontWeight: isEmphasized ? 'bold' : undefined,
-    wrap: label === 'Exchange rates'
+    wrap: label === 'Exchange rates' || label === 'Precision'
   });
 }
 
 // The first sheet in every export: title rows, then a Field/Value table
 // built from the export model's `summary` array.
 function createSummarySheet(model) {
+  // One note, only when a stored amount is beyond what Excel can hold.
+  const summary = model.rows.some(
+    (row) => typeof row.sum === 'number' && getStoredAmountPresentation(row.sum).exceedsExcel
+  )
+    ? [...model.summary, ['Precision', precisionNote]]
+    : model.summary;
+
   return {
     sheet: sheetNames.summary,
     data: [
@@ -159,7 +204,7 @@ function createSummarySheet(model) {
       [titleCell(model.title, { fontSize: 14, textColor: colors.primary }), null],
       [null, null],
       [headerCell('Field'), headerCell('Value')],
-      ...model.summary.map(([label, value]) => {
+      ...summary.map(([label, value]) => {
         const isEmphasized = label === 'Total' || label === 'Annual Total';
 
         return [
@@ -174,7 +219,12 @@ function createSummarySheet(model) {
 
 // Picks the right cell type/format per column for one data row.
 function createDataCell(column, value) {
-  if (column === 'Sum' || column === 'Total') {
+  if (column === 'Sum') {
+    // A stored original amount: exact-digit format, never rounded.
+    return numericCell(value, getStoredAmountPresentation(value).format);
+  }
+
+  if (column === 'Total') {
     return numericCell(value);
   }
 

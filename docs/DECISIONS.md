@@ -1789,9 +1789,18 @@ Approved by the product owner after the M2A.1 policy review:
   never `0.00`, and there is no scientific notation. `Intl` accepts up to 100
   fraction digits; a value needing more (below 1e-100) uses an exact string
   fallback with grouping, which keeps every digit but uses a plain `-` for
-  negatives. In Excel the stored number is written as is; its two-to-eight
-  decimal format can *display* a value like `1e-21` as `0.00`, but the cell
-  value is unchanged.
+  negatives.
+- **Excel stored amounts.** Written as real numbers, never rounded or turned
+  into text. The shared format shows at most eight decimals, so a stored
+  amount with more decimals gets its own exact-digit number format (up to 30
+  decimals, then a scientific format), so `1e-21` shows as
+  `0.000000000000000000001` and not `0.00`. Excel keeps and shows only about 15
+  significant digits and cannot hold magnitudes below about 2.2e-308, so when
+  a stored amount exceeds that (for example `123456789.12345679`) the Summary
+  sheet gets one `Precision` note. The exact value stays in Cost Manager Pro
+  and in the PDF. Unavoidable limits: Excel may show fewer digits than the
+  stored value has, and these formats were checked in the file (cell types and
+  format codes), not rendered in Excel itself.
 - **PDF.** Uses the same formatters as the screen, so the document text equals
   the on-screen text.
 - The demo/unverified exchange-rate disclosure (ADR-045) is unchanged on
