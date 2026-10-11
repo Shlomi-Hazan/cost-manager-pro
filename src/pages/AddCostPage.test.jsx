@@ -1,6 +1,6 @@
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { costsDatabase } from '../lib/costsDatabase.js';
@@ -386,7 +386,13 @@ describe('AddCostPage', () => {
       const user = setupUser();
       renderAddCostPage();
 
-      await submitCost(user, { sum: '5', category: 'c'.repeat(51), description: 'd'.repeat(201) });
+      // Long values are set directly: typing 250 characters one key at a
+      // time is slow, and the length rules themselves are covered in
+      // tests/validation.
+      fireEvent.change(screen.getByLabelText('Sum'), { target: { value: '5' } });
+      fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'c'.repeat(51) } });
+      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'd'.repeat(201) } });
+      await user.click(screen.getByRole('button', { name: 'Add Cost' }));
 
       expect(screen.getByText('Use at most 50 characters.')).toBeInTheDocument();
       expect(screen.getByText('Use at most 200 characters.')).toBeInTheDocument();
