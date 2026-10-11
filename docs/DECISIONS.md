@@ -1784,6 +1784,14 @@ Approved by the product owner after the M2A.1 policy review:
   one-decimal share. No decimal string is converted to a Number except after
   rounding to the currency's minor unit, which a double represents to well
   within Excel's 15 digits. Workbook structure and styles are unchanged.
+- **Stored amounts are never rounded for display.** The digit count comes from
+  the exact decimal, so a stored `1e-21` shows as `0.000000000000000000001`,
+  never `0.00`, and there is no scientific notation. `Intl` accepts up to 100
+  fraction digits; a value needing more (below 1e-100) uses an exact string
+  fallback with grouping, which keeps every digit but uses a plain `-` for
+  negatives. In Excel the stored number is written as is; its two-to-eight
+  decimal format can *display* a value like `1e-21` as `0.00`, but the cell
+  value is unchanged.
 - **PDF.** Uses the same formatters as the screen, so the document text equals
   the on-screen text.
 - The demo/unverified exchange-rate disclosure (ADR-045) is unchanged on

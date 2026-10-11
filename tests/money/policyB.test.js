@@ -256,3 +256,18 @@ describe('pie export share cells', () => {
     expect(model.rows.map((row) => row.percentage)).toEqual([0.383, 0.211, 0.407]);
   });
 });
+
+describe('same-currency identity keeps historical precision', () => {
+  it('does not force stored amounts into minor units before aggregation', () => {
+    const costs = [
+      { sum: 1e-21, currency: 'USD', category: 'A' },
+      { sum: 2e-21, currency: 'USD', category: 'A' },
+      { sum: 0.333, currency: 'USD', category: 'B' }
+    ];
+
+    expect(sumCostsExact(costs, 'USD', null)).toBe('0.333000000000000000003');
+    expect(buildCategoryFinancials(costs, 'USD', null).entries[0].amount).toBe('0.000000000000000000003');
+    // Only the final display rounds.
+    expect(roundForCurrency(sumCostsExact(costs, 'USD', null), 'USD')).toBe('0.33');
+  });
+});

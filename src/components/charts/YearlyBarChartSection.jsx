@@ -36,6 +36,7 @@ import RateDisclosureAlert from '../common/RateDisclosureAlert.jsx';
 import SectionCard from '../common/SectionCard.jsx';
 import { supportedCurrencies } from '../../constants/currencies.js';
 import { costsDatabase } from '../../lib/costsDatabase.js';
+import { compareAmounts } from '../../lib/money/decimal.js';
 import { buildYearlyFinancials } from '../../lib/money/financials.js';
 import { formatAmount } from '../../lib/money/format.js';
 import {
@@ -277,7 +278,7 @@ function YearlyBarChartSection() {
   // Derived from state rather than stored separately, so they can never
   // drift out of sync with the last generated yearlyResult.
   const monthlyTotals = yearlyResult?.monthlyTotals ?? [];
-  const hasYearlyCosts = monthlyTotals.some((entry) => entry.total > 0);
+  const hasYearlyCosts = monthlyTotals.some((entry) => compareAmounts(entry.amount, '0') > 0);
 
   return (
     <Stack spacing={3}>

@@ -5,7 +5,7 @@
  * from zero ("halfExpand"), applied once here. No toFixed() and no
  * Math.round(n * 100) / 100.
  */
-import { percentageOf, roundAmount } from './decimal.js';
+import { normalizeAmount, percentageOf, roundAmount } from './decimal.js';
 
 // Minor-unit digits per currency. JPY and 3-decimal currencies are only used
 // by calculation tests; they are not user-selectable.
@@ -56,25 +56,65 @@ export function formatMoney(amount, currency, locale = DEFAULT_LOCALE) {
   }).format(roundForCurrency(amount, currency));
 }
 
+// Largest fraction-digit count Intl.NumberFormat accepts here: 100 in current
+// Chrome/Firefox/Safari, 20 in older engines. Probed once so the fallback
+// below is used only when it is really needed.
+const intlFractionLimit = (() => {
+  for (const limit of [100, 20]) {
+    try {
+      new Intl.NumberFormat('en-US', { maximumFractionDigits: limit });
+      return limit;
+    } catch {
+      // Try the smaller documented limit.
+    }
+  }
+  return 3;
+})();
+
+// Fallback for values with more fraction digits than Intl accepts: the digits
+// are kept exactly (never truncated or rounded), with the locale's decimal
+// and grouping symbols. A negative sign is a plain "-" (no directionality
+// marks), which is the only difference from the Intl path.
+function formatDecimalStringExactly(canonical, minimumDigits, locale) {
+  const parts = new Intl.NumberFormat(locale).formatToParts(1000000.5);
+  const group = parts.find((part) => part.type === 'group')?.value ?? ',';
+  const decimal = parts.find((part) => part.type === 'decimal')?.value ?? '.';
+  const negative = canonical.startsWith('-');
+  const [whole, fraction = ''] = canonical.replace('-', '').split('.');
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, group);
+  const paddedFraction = fraction.padEnd(minimumDigits, '0');
+
+  return `${negative ? '-' : ''}${groupedWhole}${paddedFraction ? decimal + paddedFraction : ''}`;
+}
+
 /**
- * Formats an ORIGINAL stored amount without rounding it: the shortest exact
- * decimal, grouped, at least the minor-unit digits, and any excess historical
- * precision kept (never silently rounded).
+ * Formats an ORIGINAL stored amount without rounding it. The digit count is
+ * read from the exact canonical decimal (never from a rounded value), so the
+ * shortest exact form is shown, padded to the currency's minor unit, and a
+ * nonzero amount never displays as zero. No scientific notation. Beyond
+ * Intl's fraction-digit limit (100 digits; only reachable by values below
+ * 1e-100) an exact string fallback keeps every digit.
  * @param {string|number} amount
  * @param {string} currency
  * @param {string} [locale]
  * @returns {string}
  */
 export function formatStoredAmount(amount, currency, locale = DEFAULT_LOCALE) {
-  const text = typeof amount === 'number' ? String(amount) : amount;
-  const fractionLength = (/\.(\d+)$/.exec(roundAmount(text, 20).replace(/0+$/, '')) ?? ['', ''])[1].length;
+  const canonical = normalizeAmount(amount);
+  const fractionLength = canonical.split('.')[1]?.length ?? 0;
   const digits = Math.max(getMinorUnitDigits(currency), fractionLength);
 
+  if (digits > intlFractionLimit) {
+    return formatDecimalStringExactly(canonical, getMinorUnitDigits(currency), locale);
+  }
+
+  // Intl formats a decimal string exactly; with min = max = the exact digit
+  // count there is nothing to round.
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
     useGrouping: true
-  }).format(roundAmount(text, digits));
+  }).format(canonical);
 }
 
 /**

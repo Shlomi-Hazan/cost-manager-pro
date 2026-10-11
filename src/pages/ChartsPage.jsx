@@ -41,6 +41,7 @@ import {
   refreshExchangeRates
 } from '../services/exchangeRatesService.js';
 import { getRateDisclosureForCosts } from '../services/rateDisclosureService.js';
+import { compareAmounts, percentageOf } from '../lib/money/decimal.js';
 import { buildCategoryFinancials } from '../lib/money/financials.js';
 import { formatAmount } from '../lib/money/format.js';
 import YearlyBarChartSection from '../components/charts/YearlyBarChartSection.jsx';
@@ -159,7 +160,9 @@ function renderPieLabel(labelProps) {
   const payload = labelProps.payload ?? labelProps;
   const category = payload.category ?? labelProps.name;
   const percentage = payload.percentage ?? labelProps.percent ?? 0;
-  const percentageText = payload.percentageText ?? `${(percentage * 100).toFixed(1)}`;
+  // percentageText comes from the exact calculation; this fallback is only
+  // for a label without it, and rounds with the decimal engine, not toFixed().
+  const percentageText = payload.percentageText ?? percentageOf(String(percentage), '1', 1);
   const { midAngle } = labelProps;
 
   if (!shouldShowPieSliceLabel({ percentage })) {
@@ -370,7 +373,7 @@ function ChartsPage() {
   }));
   const chartData = pieDisplayData;
   const hasChartData = chartData.length > 0;
-  const hasPositiveChartData = chartData.some((entry) => entry.total > 0);
+  const hasPositiveChartData = chartData.some((entry) => compareAmounts(entry.amount, '0') > 0);
 
   return (
     <Stack spacing={3}>

@@ -6,7 +6,7 @@
  * a report/chart's raw data is shaped.
  */
 import { formatDateForDisplay, formatTime } from '../../utils/dateTime.js';
-import { percentageToRatio, sumAmounts } from '../../lib/money/decimal.js';
+import { compareAmounts, percentageToRatio, sumAmounts } from '../../lib/money/decimal.js';
 import {
   formatAmount,
   formatRatioAsPercentage,
@@ -226,7 +226,7 @@ function createBarChartExportModel({ yearlyResult }) {
     sumAmounts(yearlyResult.monthlyTotals.map((entry) => entry.amount ?? entry.total));
   const annualTotal = roundedTotal(annualAmount, yearlyResult.currency);
   const monthsWithCosts = yearlyResult.monthlyTotals.filter(
-    (entry) => Number(entry.amount ?? entry.total) > 0
+    (entry) => compareAmounts(entry.amount ?? entry.total, '0') > 0
   ).length;
 
   return {
