@@ -24,7 +24,8 @@ import {
   legacyCosts,
   makeCost,
   originalAppKeys,
-  quotaError
+  quotaError,
+  upgradedLegacyCosts
 } from './fixtures.js';
 
 vi.mock('../../src/services/export/downloadService.js', () => ({
@@ -63,6 +64,8 @@ async function lastDownload() {
 
   return { filename, text: await blob.text(), type: blob.type };
 }
+
+const sampleCosts = upgradedLegacyCosts();
 
 describe('data management service', () => {
   beforeEach(() => {
@@ -104,26 +107,26 @@ describe('data management service', () => {
 
   describe('backup', () => {
     it('contains every stored expense with exact values', () => {
-      localStorage.setItem(appDataKey, currentDocument(legacyCosts));
+      localStorage.setItem(appDataKey, currentDocument(sampleCosts));
 
       const file = buildBackupFile(undefined, now);
       const backup = JSON.parse(file.content);
 
       expect(file.costCount).toBe(3);
-      expect(backup.costs).toEqual(legacyCosts);
-      expect(backup).toMatchObject({ format: 'cost-manager-pro-backup', formatVersion: 1, costCount: 3 });
+      expect(backup.costs).toEqual(sampleCosts);
+      expect(backup).toMatchObject({ format: 'cost-manager-pro-backup', formatVersion: 2, costCount: 3 });
     });
 
     it('does not include settings or cached exchange rates', () => {
-      localStorage.setItem(appDataKey, currentDocument(legacyCosts));
+      localStorage.setItem(appDataKey, currentDocument(sampleCosts));
       setCustomExchangeRatesUrl('https://example.com/private-rates.json');
-      setCachedExchangeRates({ USD: 1, GBP: 0.6, EURO: 0.7, ILS: 3.4 });
+      setCachedExchangeRates({ USD: 1, GBP: 0.6, EUR: 0.7, ILS: 3.4 });
 
       const { content } = buildBackupFile(undefined, now);
 
       expect(content).not.toContain('private-rates');
       expect(content).not.toContain('exchangeRatesUrl');
-      expect(JSON.parse(content).costs).toEqual(legacyCosts);
+      expect(JSON.parse(content).costs).toEqual(sampleCosts);
     });
 
     it('refuses to back up damaged data as if it were valid', () => {
@@ -150,6 +153,8 @@ describe('data management service', () => {
       localStorage.setItem(appDataKey, currentDocument(original));
       const backup = JSON.stringify({
         format: 'cost-manager-pro-backup',
+        // A version 1 backup (written before the euro became EUR): its EURO
+        // records are upgraded while the file is checked.
         formatVersion: 1,
         exportedAt: now.toISOString(),
         app: 'Cost Manager Pro',
@@ -158,7 +163,7 @@ describe('data management service', () => {
       });
 
       expect(applyRestore(prepareRestore(backup), undefined, now)).toBe(3);
-      expect(costsDatabase.getAllCosts()).toEqual(legacyCosts);
+      expect(costsDatabase.getAllCosts()).toEqual(sampleCosts);
       expect(getDataStatus().previousData).toMatchObject({
         reason: 'restore',
         costCount: 1,
@@ -245,7 +250,7 @@ describe('data management service', () => {
 
     it('downloads restorable previous data as a backup file', async () => {
       localStorage.setItem(appDataKey, currentDocument([makeCost()]));
-      applyRestore({ costs: legacyCosts, costCount: 3 }, undefined, now);
+      applyRestore({ costs: sampleCosts, costCount: 3 }, undefined, now);
 
       downloadPreviousData(undefined, now);
 
@@ -260,7 +265,7 @@ describe('data management service', () => {
       const originalValues = seedOriginalApp();
 
       expect(importLegacyCopy(undefined, now)).toBe(3);
-      expect(costsDatabase.getAllCosts()).toEqual(legacyCosts);
+      expect(costsDatabase.getAllCosts()).toEqual(sampleCosts);
       expectOriginalAppUntouched(originalValues);
     });
 
@@ -292,7 +297,7 @@ describe('data management service', () => {
       costsDatabase.deleteCost(added.id);
       setCustomExchangeRatesUrl('https://example.com/pro-rates.json');
       clearCustomExchangeRatesUrl();
-      setCachedExchangeRates({ USD: 1, GBP: 0.5, EURO: 0.9, ILS: 3.7 });
+      setCachedExchangeRates({ USD: 1, GBP: 0.5, EUR: 0.9, ILS: 3.7 });
       // A non-empty dataset, so the restore also writes a safety copy.
       costsDatabase.addCost({ sum: 5, currency: 'ILS', category: 'Food', description: 'Coffee' });
       applyRestore({ costs: [makeCost()], costCount: 1 }, undefined, now);

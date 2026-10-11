@@ -23,7 +23,7 @@ import { createRandom } from './oracle.js';
  * M2A.2 Policy B: exact decimals through every conversion and sum; one
  * rounding, half away from zero, at presentation/export.
  */
-const rates = { USD: 1, GBP: 0.6, EURO: 0.7, ILS: 3.4 };
+const rates = { USD: 1, GBP: 0.6, EUR: 0.7, ILS: 3.4 };
 
 function openDatabase(name) {
   return db.openCostsDB(name, 1);

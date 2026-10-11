@@ -4,12 +4,12 @@
  * conversion formula, so both the React application and any report/chart
  * code reuse identical, independently-tested logic instead of re-deriving it.
  */
-import { supportedCurrencies } from '../constants/currencies.js';
+import { legacyEuroIdentifier, supportedCurrencies } from '../constants/currencies.js';
 import { amountToNumber, convertDecimalAmount } from '../lib/money/decimal.js';
 
 /**
  * @param {string} currency - Currency identifier to check.
- * @returns {boolean} True if currency is one of USD, ILS, GBP, EURO.
+ * @returns {boolean} True if currency is one of USD, ILS, GBP, EUR.
  */
 export function isSupportedCurrency(currency) {
   return supportedCurrencies.includes(currency);
@@ -19,7 +19,14 @@ export function isSupportedCurrency(currency) {
  * Validates a raw exchange-rate object (usually a Fetch response, default
  * or custom) before it is trusted anywhere in the app. The official rate
  * model expresses every rate as "how many units of that currency equal 1
- * USD", e.g. { USD: 1, GBP: 0.6, EURO: 0.7, ILS: 3.4 }.
+ * USD", e.g. { USD: 1, GBP: 0.6, EUR: 0.7, ILS: 3.4 }.
+ *
+ * Compatibility (M2A.3): before the euro became "EUR" it was "EURO", and
+ * a custom source or an old cache may still use that key. A source with
+ * "EURO" and no "EUR" is read as the same euro rate. This only affects the
+ * in-memory copy: nothing stored is rewritten, "EURO" is never emitted, and a
+ * source that gives both with different values is rejected instead of one
+ * being guessed.
  * @param {object} rates - Candidate rates object.
  * @returns {object} A clean copy containing only the four required
  *   currencies in a fixed order; extra fields on the source object are
@@ -30,6 +37,15 @@ export function isSupportedCurrency(currency) {
 export function validateExchangeRates(rates) {
   if (rates === null || typeof rates !== 'object' || Array.isArray(rates)) {
     throw new TypeError('Exchange rates must be an object.');
+  }
+
+  // Resolve the legacy euro key first, so the checks below see one "EUR".
+  if (Object.hasOwn(rates, legacyEuroIdentifier)) {
+    if (!Object.hasOwn(rates, 'EUR')) {
+      rates = { ...rates, EUR: rates[legacyEuroIdentifier] };
+    } else if (rates.EUR !== rates[legacyEuroIdentifier]) {
+      throw new TypeError('Exchange rates give different values for EUR and EURO.');
+    }
   }
 
   supportedCurrencies.forEach((currency) => {
@@ -79,11 +95,11 @@ export function convertCurrency(amount, sourceCurrency, targetCurrency, rates) {
   }
 
   if (!isSupportedCurrency(sourceCurrency)) {
-    throw new TypeError('sourceCurrency must be one of USD, ILS, GBP, EURO.');
+    throw new TypeError('sourceCurrency must be one of USD, ILS, GBP, EUR.');
   }
 
   if (!isSupportedCurrency(targetCurrency)) {
-    throw new TypeError('targetCurrency must be one of USD, ILS, GBP, EURO.');
+    throw new TypeError('targetCurrency must be one of USD, ILS, GBP, EUR.');
   }
 
   const validatedRates = validateExchangeRates(rates);

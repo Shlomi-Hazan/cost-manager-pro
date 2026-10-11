@@ -100,7 +100,7 @@ function validateEditableCost(cost) {
 // Guards the required getReport() arguments once defaults have been applied.
 function validateReportArguments(currency, year, month) {
   if (!isSupportedCurrency(currency)) {
-    throw new TypeError('currency must be one of USD, ILS, GBP, EURO.');
+    throw new TypeError('currency must be one of USD, ILS, GBP, EUR.');
   }
 
   if (typeof year !== 'number' || !Number.isInteger(year)) {
@@ -184,7 +184,7 @@ function openCostsDB(databaseName, databaseVersion) {
      * (team extension) and the automatic added-on date (R-035).
      * @param {object} cost - The cost to add.
      * @param {number} cost.sum - Cost amount.
-     * @param {string} cost.currency - One of USD, ILS, GBP, EURO.
+     * @param {string} cost.currency - One of USD, ILS, GBP, EUR.
      * @param {string} cost.category - Free-text category.
      * @param {string} cost.description - Free-text description.
      * @returns {object} The stored cost, including its generated id/date
@@ -302,7 +302,7 @@ function openCostsDB(databaseName, databaseVersion) {
     /**
      * Required method of the protected db.js contract.
      * @param {string} currency - Currency to report the total in; one of
-     *   USD, ILS, GBP, EURO.
+     *   USD, ILS, GBP, EUR.
      * @param {number} [year] - Report year; defaults to the current year
      *   (R-052) when omitted, matching the official `ob.getReport("USD")`
      *   sample.

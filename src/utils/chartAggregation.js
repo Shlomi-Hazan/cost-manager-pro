@@ -18,7 +18,7 @@ function validateCostForAggregation(cost) {
   }
 
   if (!isSupportedCurrency(cost.currency)) {
-    throw new TypeError('cost.currency must be one of USD, ILS, GBP, EURO.');
+    throw new TypeError('cost.currency must be one of USD, ILS, GBP, EUR.');
   }
 
   if (typeof cost.category !== 'string') {
@@ -45,7 +45,7 @@ export function aggregateCostsByCategory(costs, targetCurrency, rates) {
   }
 
   if (!isSupportedCurrency(targetCurrency)) {
-    throw new TypeError('targetCurrency must be one of USD, ILS, GBP, EURO.');
+    throw new TypeError('targetCurrency must be one of USD, ILS, GBP, EUR.');
   }
 
   costs.forEach(validateCostForAggregation);

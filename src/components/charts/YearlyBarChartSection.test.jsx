@@ -22,7 +22,7 @@ import YearlyBarChartSection from './YearlyBarChartSection.jsx';
 const validRates = {
   USD: 1,
   GBP: 0.5,
-  EURO: 0.8,
+  EUR: 0.8,
   ILS: 4
 };
 

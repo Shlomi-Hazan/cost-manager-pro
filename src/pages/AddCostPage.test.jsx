@@ -207,7 +207,7 @@ describe('AddCostPage', () => {
       'USD',
       'ILS',
       'GBP',
-      'EURO'
+      'EUR'
     ]);
   });
 

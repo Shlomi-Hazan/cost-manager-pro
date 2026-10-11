@@ -10,7 +10,7 @@ import { convertDecimalAmount, normalizeAmount, sumAmounts } from './decimal.js'
 
 function assertSupported(currency, label) {
   if (!supportedCurrencies.includes(currency)) {
-    throw new TypeError(`${label} must be one of USD, ILS, GBP, EURO.`);
+    throw new TypeError(`${label} must be one of USD, ILS, GBP, EUR.`);
   }
 }
 

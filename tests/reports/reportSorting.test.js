@@ -230,13 +230,13 @@ describe('reportSorting', () => {
   it('sorts Currency ascending alphabetically', () => {
     const costs = [
       createCost('USD', { currency: 'USD' }),
-      createCost('EURO', { currency: 'EURO' }),
+      createCost('EUR', { currency: 'EUR' }),
       createCost('GBP', { currency: 'GBP' }),
       createCost('ILS', { currency: 'ILS' })
     ];
 
     expect(sortIds(costs, reportSortKeys.currency)).toEqual([
-      'EURO',
+      'EUR',
       'GBP',
       'ILS',
       'USD'
@@ -246,7 +246,7 @@ describe('reportSorting', () => {
   it('sorts Currency descending alphabetically', () => {
     const costs = [
       createCost('USD', { currency: 'USD' }),
-      createCost('EURO', { currency: 'EURO' }),
+      createCost('EUR', { currency: 'EUR' }),
       createCost('GBP', { currency: 'GBP' }),
       createCost('ILS', { currency: 'ILS' })
     ];
@@ -255,7 +255,7 @@ describe('reportSorting', () => {
       'USD',
       'ILS',
       'GBP',
-      'EURO'
+      'EUR'
     ]);
   });
 

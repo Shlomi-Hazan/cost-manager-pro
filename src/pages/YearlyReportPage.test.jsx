@@ -19,7 +19,7 @@ import theme from '../theme.js';
 const validRates = {
   USD: 1,
   GBP: 0.5,
-  EURO: 0.8,
+  EUR: 0.8,
   ILS: 4
 };
 
@@ -126,7 +126,7 @@ function addSortableYearlyCosts() {
     minute: 14,
     cost: {
       sum: 25.5,
-      currency: 'EURO',
+      currency: 'EUR',
       category: 'Shopping',
       description: 'car'
     }
@@ -568,12 +568,12 @@ describe('YearlyReportPage', () => {
     await sortBy(user, 'Sum');
 
     expect(getColumnValues(4)).toEqual(['2.00', '25.50', '100.00']);
-    expect(getColumnValues(5)).toEqual(['GBP', 'EURO', 'USD']);
+    expect(getColumnValues(5)).toEqual(['GBP', 'EUR', 'USD']);
 
     await sortBy(user, 'Sum');
 
     expect(getColumnValues(4)).toEqual(['100.00', '25.50', '2.00']);
-    expect(getColumnValues(5)).toEqual(['USD', 'EURO', 'GBP']);
+    expect(getColumnValues(5)).toEqual(['USD', 'EUR', 'GBP']);
   });
 
   it('sorts Category and Currency alphabetically', async () => {
@@ -590,7 +590,7 @@ describe('YearlyReportPage', () => {
 
     await sortBy(user, 'Currency');
 
-    expect(getColumnValues(5)).toEqual(['EURO', 'GBP', 'USD']);
+    expect(getColumnValues(5)).toEqual(['EUR', 'GBP', 'USD']);
     expect(getColumnValues(2)).toEqual(['car', 'Apple', 'banana']);
   });
 

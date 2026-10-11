@@ -77,9 +77,9 @@ describe('exportFilenames', () => {
       getPieChartExportFilename({
         year: 2026,
         month: 1,
-        currency: 'EURO',
+        currency: 'EUR',
         extension: 'xlsx'
       })
-    ).toBe('cost-manager-pie-chart-2026-01-euro.xlsx');
+    ).toBe('cost-manager-pie-chart-2026-01-eur.xlsx');
   });
 });

@@ -11,6 +11,7 @@ import {
   appDataKey,
   currentDocument,
   legacyCosts,
+  upgradedLegacyCosts,
   makeCost,
   originalAppKeys
 } from '../../../tests/storage/fixtures.js';
@@ -49,6 +50,8 @@ function getFileInput() {
   return screen.getByLabelText('Backup file to restore');
 }
 
+const sampleCosts = upgradedLegacyCosts();
+
 describe('DataManagementSection', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -62,7 +65,7 @@ describe('DataManagementSection', () => {
   it('shows how many expenses are stored and downloads a complete backup', async () => {
     const user = userEvent.setup();
 
-    localStorage.setItem(appDataKey, currentDocument(legacyCosts));
+    localStorage.setItem(appDataKey, currentDocument(sampleCosts));
     renderSection();
 
     expect(screen.getByRole('heading', { name: 'Your data' })).toBeInTheDocument();
@@ -74,7 +77,7 @@ describe('DataManagementSection', () => {
     const backup = JSON.parse(await blob.text());
 
     expect(filename).toMatch(/^cost-manager-pro-backup-\d{4}-\d{2}-\d{2}-\d{4}\.json$/);
-    expect(backup.costs).toEqual(legacyCosts);
+    expect(backup.costs).toEqual(sampleCosts);
     expect(screen.getByRole('alert')).toHaveTextContent(`Backup downloaded: ${filename}`);
   });
 
@@ -113,7 +116,7 @@ describe('DataManagementSection', () => {
     await user.upload(getFileInput(), backupFile(legacyCosts));
     await user.click(await screen.findByRole('button', { name: 'Replace with backup' }));
 
-    expect(costsDatabase.getAllCosts()).toEqual(legacyCosts);
+    expect(costsDatabase.getAllCosts()).toEqual(sampleCosts);
     // findByRole waits for the closing dialog to stop hiding the page.
     expect(await screen.findByRole('alert')).toHaveTextContent('Restored 3 expenses from the backup.');
     expect(screen.getByText('3 expenses stored in this browser.')).toBeInTheDocument();
@@ -174,7 +177,7 @@ describe('DataManagementSection', () => {
     await user.click(screen.getByRole('button', { name: 'Import a copy…' }));
     await user.click(await screen.findByRole('button', { name: 'Import a copy' }));
 
-    expect(costsDatabase.getAllCosts()).toEqual(legacyCosts);
+    expect(costsDatabase.getAllCosts()).toEqual(sampleCosts);
     expect(localStorage.getItem(originalAppKeys.costs)).toBe(originalValue);
   });
 

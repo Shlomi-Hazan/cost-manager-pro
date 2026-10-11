@@ -304,7 +304,7 @@ describe('module db contract', () => {
   });
 
   it('accepts each required currency identifier for same-currency reports', () => {
-    const currencies = ['USD', 'ILS', 'GBP', 'EURO'];
+    const currencies = ['USD', 'ILS', 'GBP', 'EUR'];
 
     currencies.forEach((currency, index) => {
       const ob = db.openCostsDB(`costsdb-${currency}`, 1);
@@ -572,8 +572,8 @@ describe('module db contract', () => {
       'cost.sum must be a finite number.'
     );
     expect(() =>
-      ob.updateCost(added.id, { ...editableCost(), currency: 'EUR' })
-    ).toThrow('cost.currency must be one of USD, ILS, GBP, EURO.');
+      ob.updateCost(added.id, { ...editableCost(), currency: 'EURO' })
+    ).toThrow('cost.currency must be one of USD, ILS, GBP, EUR.');
     expect(() =>
       ob.updateCost(added.id, { ...editableCost(), category: 123 })
     ).toThrow('cost.category must be a string.');
@@ -744,7 +744,7 @@ describe('module db contract', () => {
     setCachedExchangeRates({
       USD: 1,
       GBP: 0.5,
-      EURO: 0.8,
+      EUR: 0.8,
       ILS: 4
     });
     const ob = db.openCostsDB('costsdb', 1);

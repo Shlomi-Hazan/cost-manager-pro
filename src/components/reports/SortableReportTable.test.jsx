@@ -13,7 +13,7 @@ const costs = [
   {
     id: 'cost-1',
     sum: 25.5,
-    currency: 'EURO',
+    currency: 'EUR',
     category: 'Shopping',
     description: 'car',
     date: {
@@ -98,7 +98,7 @@ describe('SortableReportTable', () => {
     expect(screen.getByText('car')).toBeInTheDocument();
     expect(screen.getByText('Shopping')).toBeInTheDocument();
     expect(screen.getByText('25.50')).toBeInTheDocument();
-    expect(screen.getByText('EURO')).toBeInTheDocument();
+    expect(screen.getByText('EUR')).toBeInTheDocument();
     expect(screen.queryByText('cost-1')).not.toBeInTheDocument();
   });
 

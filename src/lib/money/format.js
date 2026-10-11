@@ -9,10 +9,7 @@ import { normalizeAmount, percentageOf, roundAmount } from './decimal.js';
 
 // Minor-unit digits per currency. JPY and 3-decimal currencies are only used
 // by calculation tests; they are not user-selectable.
-const minorUnitDigits = { USD: 2, ILS: 2, GBP: 2, EURO: 2, JPY: 0, KWD: 3 };
-
-// The app's identifier EURO is formatting-only mapped to ISO EUR.
-const isoCodes = { EURO: 'EUR' };
+const minorUnitDigits = { USD: 2, ILS: 2, GBP: 2, EUR: 2, JPY: 0, KWD: 3 };
 
 export const DEFAULT_LOCALE = 'en-US';
 
@@ -46,7 +43,7 @@ export function formatMoney(amount, currency, locale = DEFAULT_LOCALE) {
 
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: isoCodes[currency] ?? currency,
+    currency,
     currencyDisplay: 'symbol',
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

@@ -73,7 +73,7 @@ describe('rate source classification', () => {
   it('does not depend on what is cached, so cached sample rates cannot suppress it', () => {
     localStorage.setItem(
       'cost-manager-pro:exchange-rates-cache',
-      JSON.stringify({ USD: 1, GBP: 0.6, EURO: 0.7, ILS: 3.4 })
+      JSON.stringify({ USD: 1, GBP: 0.6, EUR: 0.7, ILS: 3.4 })
     );
 
     expect(getRateDisclosure().kind).toBe(rateSourceKinds.demo);

@@ -4,13 +4,13 @@ import { convertCurrency, validateExchangeRates } from '../../src/utils/currency
 /*
  * Protects the official rate model and the conversion formula
  * (amount / rates[source] * rates[target]) against regressions such as an
- * inverted formula or accidental EUR/EURO confusion, independent of any
+ * inverted formula or accidental EUR/EUR confusion, independent of any
  * report/chart UI that happens to call this function.
  */
 const rates = {
   USD: 1,
   GBP: 0.5,
-  EURO: 0.8,
+  EUR: 0.8,
   ILS: 4
 };
 
@@ -27,12 +27,12 @@ describe('currency utilities', () => {
     expect(convertCurrency(400, 'ILS', 'USD', rates)).toBe(100);
   });
 
-  it('converts GBP to EURO using the shared conversion formula', () => {
-    expect(convertCurrency(50, 'GBP', 'EURO', rates)).toBe(80);
+  it('converts GBP to EUR using the shared conversion formula', () => {
+    expect(convertCurrency(50, 'GBP', 'EUR', rates)).toBe(80);
   });
 
   it('allows zero amounts', () => {
-    expect(convertCurrency(0, 'GBP', 'EURO', rates)).toBe(0);
+    expect(convertCurrency(0, 'GBP', 'EUR', rates)).toBe(0);
   });
 
   it('preserves decimal precision without rounding', () => {
@@ -41,13 +41,13 @@ describe('currency utilities', () => {
 
   it('rejects invalid source currencies', () => {
     expect(() => convertCurrency(10, 'CAD', 'USD', rates)).toThrow(
-      'sourceCurrency must be one of USD, ILS, GBP, EURO.'
+      'sourceCurrency must be one of USD, ILS, GBP, EUR.'
     );
   });
 
   it('rejects invalid target currencies', () => {
     expect(() => convertCurrency(10, 'USD', 'CAD', rates)).toThrow(
-      'targetCurrency must be one of USD, ILS, GBP, EURO.'
+      'targetCurrency must be one of USD, ILS, GBP, EUR.'
     );
   });
 
@@ -58,7 +58,7 @@ describe('currency utilities', () => {
   });
 
   it('rejects missing required currencies', () => {
-    expect(() => validateExchangeRates({ USD: 1, GBP: 0.5, EURO: 0.8 })).toThrow(
+    expect(() => validateExchangeRates({ USD: 1, GBP: 0.5, EUR: 0.8 })).toThrow(
       'Exchange rates must include ILS.'
     );
   });

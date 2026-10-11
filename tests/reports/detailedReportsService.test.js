@@ -239,13 +239,13 @@ describe('detailedReportsService', () => {
       costs: [createCost({ id: 'old', date: { year: 2025 } })]
     });
 
-    const report = buildDetailedYearlyReport(database, 'EURO', 2026);
+    const report = buildDetailedYearlyReport(database, 'EUR', 2026);
 
     expect(report).toEqual({
       year: 2026,
       costs: [],
       total: {
-        currency: 'EURO',
+        currency: 'EUR',
         sum: 0
       },
       // M2A.2: additive exact decimal total.

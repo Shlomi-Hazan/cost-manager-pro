@@ -1,9 +1,9 @@
 /*
- * Backup file format, version 1 (documented in docs/DATA_STORAGE.md):
+ * Backup file format, version 2 (documented in docs/DATA_STORAGE.md):
  *
  *   {
  *     "format": "cost-manager-pro-backup",
- *     "formatVersion": 1,
+ *     "formatVersion": 2,
  *     "exportedAt": "2026-10-09T08:15:00.000Z",
  *     "app": "Cost Manager Pro",
  *     "costCount": 2,
@@ -14,12 +14,19 @@
  * times, and ids round-trip unchanged. Settings and the exchange-rate cache
  * are not included. Parsing validates the whole file before returning
  * anything, so a bad file can never be partly restored.
+ *
+ * Format version N holds records written under expense schema N. Version 2
+ * (M2A.3) is the first to use the ISO code "EUR". Version 1 backups, which
+ * say "EURO", are still accepted: their records are upgraded in memory with
+ * the same migration as stored data before validation, and nothing in the
+ * file is rewritten. New backups are always version 2, so a new file never
+ * contains "EURO". A version 2 file that contains "EURO" is invalid.
  */
-import { validateCostList } from './costDocument.js';
+import { upgradeCostRecords, validateCostList } from './costDocument.js';
 import { isStorageError } from './storageErrors.js';
 
 export const backupFormatName = 'cost-manager-pro-backup';
-export const currentBackupFormatVersion = 1;
+export const currentBackupFormatVersion = 2;
 
 // Far larger than any realistic expense history, and larger than browsers
 // allow localStorage to hold, so a bigger file cannot be a valid backup.
@@ -137,8 +144,13 @@ export function parseBackup(text) {
     );
   }
 
+  let costs;
+
   try {
-    validateCostList(backup.costs);
+    // Upgrade (a no-op for the current version), then validate the whole
+    // list. An old file's records are checked as the current schema.
+    costs = upgradeCostRecords(backup.costs, backup.formatVersion);
+    validateCostList(costs);
   } catch (error) {
     if (!isStorageError(error)) {
       throw error;
@@ -155,7 +167,7 @@ export function parseBackup(text) {
   }
 
   return {
-    costs: backup.costs,
+    costs,
     exportedAt: backup.exportedAt,
     costCount: backup.costCount
   };

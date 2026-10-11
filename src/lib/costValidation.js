@@ -26,7 +26,7 @@ export function validateCost(cost) {
   }
 
   if (!isSupportedCurrency(cost.currency)) {
-    throw new TypeError('cost.currency must be one of USD, ILS, GBP, EURO.');
+    throw new TypeError('cost.currency must be one of USD, ILS, GBP, EUR.');
   }
 
   if (typeof cost.category !== 'string') {
@@ -46,7 +46,7 @@ export function validateCostId(id) {
 
 // Lets the Date constructor normalize the value and checks that it did not
 // roll over into a different date (e.g. 31 February becomes 3 March).
-function isRealCalendarDate(day, month, year) {
+export function isRealCalendarDate(day, month, year) {
   const candidate = new Date(0);
 
   candidate.setFullYear(year, month - 1, day);

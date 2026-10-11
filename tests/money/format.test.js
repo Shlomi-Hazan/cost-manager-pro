@@ -18,7 +18,7 @@ describe('money formatting', () => {
     ['USD', 2],
     ['ILS', 2],
     ['GBP', 2],
-    ['EURO', 2],
+    ['EUR', 2],
     ['JPY', 0],
     ['KWD', 3]
   ])('%s uses %i minor-unit digits', (currency, digits) => {
@@ -33,8 +33,8 @@ describe('money formatting', () => {
     expect(roundForCurrency('1.0005', 'KWD')).toBe('1.001');
   });
 
-  it('formats with symbol and grouping, and EURO is formatted as ISO EUR only', () => {
-    expect(formatMoney('1234567.005', 'EURO')).toBe('€1,234,567.01');
+  it('formats with symbol and grouping, and EUR is formatted as ISO EUR only', () => {
+    expect(formatMoney('1234567.005', 'EUR')).toBe('€1,234,567.01');
     expect(formatMoney('1234.5', 'USD')).toBe('$1,234.50');
     expect(formatMoney('0.999', 'GBP')).toBe('£1.00');
     expect(formatMoney('1234.5', 'JPY')).toBe('¥1,235');
