@@ -41,22 +41,16 @@ import {
   refreshExchangeRates
 } from '../services/exchangeRatesService.js';
 import { getRateDisclosureForCosts } from '../services/rateDisclosureService.js';
-import { aggregateCostsByCategory } from '../utils/chartAggregation.js';
+import { buildCategoryFinancials } from '../lib/money/financials.js';
+import { formatAmount } from '../lib/money/format.js';
 import YearlyBarChartSection from '../components/charts/YearlyBarChartSection.jsx';
 // TEAM EXTENSION: Excel/PDF export helpers for the Pie Chart data.
 import * as excelExportService from '../services/export/excelExportService.js';
 import { buildPieChartExportModel } from '../services/export/exportModels.js';
 import * as pdfExportService from '../services/export/pdfExportService.js';
 import { captureChartSvgAsPngDataUrl } from '../utils/chartCapture.js';
-import {
-  addCategoryShare,
-  shouldShowPieSliceLabel
-} from '../utils/chartPresentation.js';
+import { shouldShowPieSliceLabel } from '../utils/chartPresentation.js';
 import { getPieChartExportFilename } from '../utils/exportFilenames.js';
-import {
-  formatDisplayAmount,
-  formatDisplayPercentage
-} from '../utils/amountFormat.js';
 import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
@@ -165,6 +159,7 @@ function renderPieLabel(labelProps) {
   const payload = labelProps.payload ?? labelProps;
   const category = payload.category ?? labelProps.name;
   const percentage = payload.percentage ?? labelProps.percent ?? 0;
+  const percentageText = payload.percentageText ?? `${(percentage * 100).toFixed(1)}`;
   const { midAngle } = labelProps;
 
   if (!shouldShowPieSliceLabel({ percentage })) {
@@ -192,7 +187,7 @@ function renderPieLabel(labelProps) {
       x={x}
       y={y}
     >
-      {`${category} ${formatDisplayPercentage(percentage)}`}
+      {`${category} ${percentageText}%`}
     </text>
   );
 }
@@ -266,7 +261,8 @@ function ChartsPage() {
         validation.chartYear,
         validation.chartMonth
       );
-      const chartData = aggregateCostsByCategory(
+      // M2A.2 (Policy B): exact category totals; rounded once when shown.
+      const financials = buildCategoryFinancials(
         report.costs,
         filters.currency,
         getCachedExchangeRates()
@@ -276,7 +272,7 @@ function ChartsPage() {
       // the rates this chart was actually computed with.
       setChartResult({
         report,
-        chartData,
+        financials,
         rateDisclosure: getRateDisclosureForCosts(
           report.costs,
           report.total.currency
@@ -296,6 +292,7 @@ function ChartsPage() {
   function buildCurrentExportModel() {
     return buildPieChartExportModel({
       chartData,
+      financials: chartResult.financials,
       rateDisclosure: chartResult.rateDisclosure,
       report: chartResult.report
     });
@@ -367,8 +364,11 @@ function ChartsPage() {
 
   // Derived from state rather than stored separately, so they can never
   // drift out of sync with the last generated chartResult.
-  const chartData = chartResult?.chartData ?? [];
-  const pieDisplayData = addCategoryShare(chartData);
+  const pieDisplayData = (chartResult?.financials.entries ?? []).map((entry) => ({
+    ...entry,
+    percentage: entry.share
+  }));
+  const chartData = pieDisplayData;
   const hasChartData = chartData.length > 0;
   const hasPositiveChartData = chartData.some((entry) => entry.total > 0);
 
@@ -582,7 +582,7 @@ function ChartsPage() {
                     </Pie>
                     <Tooltip
                       formatter={(value, name) => [
-                        `${formatDisplayAmount(value)} ${chartResult.report.total.currency}`,
+                        `${formatAmount(value, chartResult.report.total.currency)} ${chartResult.report.total.currency}`,
                         name
                       ]}
                     />
@@ -591,7 +591,7 @@ function ChartsPage() {
                       formatter={(value, entry) => {
                         const item = entry.payload;
 
-                        return `${value} - ${formatDisplayAmount(item.total)} ${chartResult.report.total.currency} - ${formatDisplayPercentage(item.percentage)}`;
+                        return `${value} - ${formatAmount(item.amount, chartResult.report.total.currency)} ${chartResult.report.total.currency} - ${item.percentageText}%`;
                       }}
                     />
                   </PieChart>
@@ -617,10 +617,10 @@ function ChartsPage() {
                       <TableRow key={entry.category}>
                         <TableCell>{entry.category}</TableCell>
                         <TableCell align="right">
-                          {formatDisplayAmount(entry.total)}
+                          {formatAmount(entry.amount, chartResult.report.total.currency)}
                         </TableCell>
                         <TableCell align="right">
-                          {formatDisplayPercentage(entry.percentage)}
+                          {entry.percentageText}%
                         </TableCell>
                         <TableCell>{chartResult.report.total.currency}</TableCell>
                       </TableRow>

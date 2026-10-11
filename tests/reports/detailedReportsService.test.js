@@ -121,7 +121,10 @@ describe('detailedReportsService', () => {
       total: {
         currency: 'USD',
         sum: 200
-      }
+      },
+      // M2A.2: additive exact decimal total (the double reports no rows, so
+      // it is taken at its reported total).
+      totalAmount: '200'
     });
     expect(database.getReport).toHaveBeenCalledWith('USD', 2026, 8);
   });
@@ -244,7 +247,9 @@ describe('detailedReportsService', () => {
       total: {
         currency: 'EURO',
         sum: 0
-      }
+      },
+      // M2A.2: additive exact decimal total.
+      totalAmount: '0'
     });
   });
 

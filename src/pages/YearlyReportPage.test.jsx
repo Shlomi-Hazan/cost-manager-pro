@@ -100,7 +100,7 @@ function expectYearlyRow({
   expect(within(row).getByText(time)).toBeInTheDocument();
   expect(within(row).getByText(description)).toBeInTheDocument();
   expect(within(row).getByText(category)).toBeInTheDocument();
-  expect(within(row).getByText(String(sum))).toBeInTheDocument();
+  expect(within(row).getByText(Number(sum).toFixed(2))).toBeInTheDocument();
   expect(within(row).getByText(currency)).toBeInTheDocument();
 }
 
@@ -249,7 +249,7 @@ describe('YearlyReportPage', () => {
     await generateReport(user);
 
     expect(screen.getByRole('heading', { name: '2026 Yearly Report' })).toBeInTheDocument();
-    expect(screen.getByText('Total: 280 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 280.00 USD')).toBeInTheDocument();
     expectYearlyRow({
       description: 'January groceries',
       category: 'Food',
@@ -289,7 +289,7 @@ describe('YearlyReportPage', () => {
     await generateReport(user);
 
     expect(screen.getByRole('heading', { name: '2031 Yearly Report' })).toBeInTheDocument();
-    expect(screen.getByText('Total: 0 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 0.00 USD')).toBeInTheDocument();
     expect(screen.getByText('No costs found for this year.')).toBeInTheDocument();
     expect(
       screen.queryByRole('table', { name: 'Yearly report costs' })
@@ -325,7 +325,7 @@ describe('YearlyReportPage', () => {
     await generateReport(user);
 
     expect(screen.getByText('Report currency: ILS')).toBeInTheDocument();
-    expect(screen.getByText('Total: 800 ILS')).toBeInTheDocument();
+    expect(screen.getByText('Total: 800.00 ILS')).toBeInTheDocument();
     expectYearlyRow({
       description: 'Train',
       category: 'Travel',
@@ -364,7 +364,7 @@ describe('YearlyReportPage', () => {
     renderYearlyReportPage();
     await generateReport(user);
 
-    expect(screen.getByText('Total: 200 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 200.00 USD')).toBeInTheDocument();
     expect(screen.getByText('Cached train')).toBeInTheDocument();
   });
 
@@ -386,7 +386,7 @@ describe('YearlyReportPage', () => {
     await generateReport(user);
 
     expect(screen.getByText('Same currency lunch')).toBeInTheDocument();
-    expect(screen.getByText('Total: 75 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 75.00 USD')).toBeInTheDocument();
   });
 
   it('shows a conversion error when mixed-currency yearly rates are unavailable', async () => {
@@ -515,7 +515,7 @@ describe('YearlyReportPage', () => {
     await generateReport(user);
 
     expect(getColumnValues(2)).toEqual(['car', 'banana', 'Apple']);
-    expect(screen.getByText('Total: 135.875 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 135.88 USD')).toBeInTheDocument();
 
     await sortBy(user, 'Date');
 
@@ -529,7 +529,7 @@ describe('YearlyReportPage', () => {
       '05/12/2026'
     ]);
     expect(getColumnValues(2)).toEqual(['banana', 'Apple', 'car']);
-    expect(screen.getByText('Total: 135.875 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 135.88 USD')).toBeInTheDocument();
 
     await sortBy(user, 'Date');
 
@@ -567,12 +567,12 @@ describe('YearlyReportPage', () => {
     await generateReport(user);
     await sortBy(user, 'Sum');
 
-    expect(getColumnValues(4)).toEqual(['2', '25.5', '100']);
+    expect(getColumnValues(4)).toEqual(['2.00', '25.50', '100.00']);
     expect(getColumnValues(5)).toEqual(['GBP', 'EURO', 'USD']);
 
     await sortBy(user, 'Sum');
 
-    expect(getColumnValues(4)).toEqual(['100', '25.5', '2']);
+    expect(getColumnValues(4)).toEqual(['100.00', '25.50', '2.00']);
     expect(getColumnValues(5)).toEqual(['USD', 'EURO', 'GBP']);
   });
 
@@ -670,7 +670,8 @@ describe('YearlyReportPage', () => {
     expect(excelSpy.mock.calls[0][0].metadata).toMatchObject({
       year: 2026,
       currency: 'USD',
-      total: 135.875
+      // Policy B: the exported total is rounded once, half away from zero.
+      total: 135.88
     });
     expect(excelSpy.mock.calls[0][1]).toBe(
       'cost-manager-yearly-report-2026-usd.xlsx'

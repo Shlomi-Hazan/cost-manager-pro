@@ -36,7 +36,12 @@ import RateDisclosureAlert from '../common/RateDisclosureAlert.jsx';
 import SectionCard from '../common/SectionCard.jsx';
 import { supportedCurrencies } from '../../constants/currencies.js';
 import { costsDatabase } from '../../lib/costsDatabase.js';
-import { refreshExchangeRates } from '../../services/exchangeRatesService.js';
+import { buildYearlyFinancials } from '../../lib/money/financials.js';
+import { formatAmount } from '../../lib/money/format.js';
+import {
+  getCachedExchangeRates,
+  refreshExchangeRates
+} from '../../services/exchangeRatesService.js';
 import { getRateDisclosureForCosts } from '../../services/rateDisclosureService.js';
 // TEAM EXTENSION: Excel/PDF export helpers for the yearly bar chart data.
 import * as excelExportService from '../../services/export/excelExportService.js';
@@ -44,8 +49,6 @@ import { buildBarChartExportModel } from '../../services/export/exportModels.js'
 import * as pdfExportService from '../../services/export/pdfExportService.js';
 import { captureChartSvgAsPngDataUrl } from '../../utils/chartCapture.js';
 import { getBarChartExportFilename } from '../../utils/exportFilenames.js';
-import { buildYearlyMonthlyTotals } from '../../utils/yearlyAggregation.js';
-import { formatDisplayAmount } from '../../utils/amountFormat.js';
 import { getStorageErrorMessage } from '../../utils/storageErrorMessage.js';
 import { formatPositiveBarValueLabel } from '../../utils/chartPresentation.js';
 
@@ -170,10 +173,13 @@ function YearlyBarChartSection() {
       // calendar month, guaranteeing exactly 12 entries — see
       // yearlyAggregation.js for why empty months still return a valid
       // zero-total report rather than being skipped.
-      const monthlyTotals = buildYearlyMonthlyTotals(
+      // M2A.2 (Policy B): each month is the exact sum of its costs and the
+      // yearly total is the exact sum of the exact months.
+      const financials = buildYearlyFinancials(
         (currency, year, month) => costsDatabase.getReport(currency, year, month),
         filters.currency,
-        validation.chartYear
+        validation.chartYear,
+        getCachedExchangeRates()
       );
 
       // Rates are only used if some cost of this year is in another currency.
@@ -183,7 +189,8 @@ function YearlyBarChartSection() {
 
       setYearlyResult({
         currency: filters.currency,
-        monthlyTotals,
+        monthlyTotals: financials.months,
+        totalAmount: financials.totalAmount,
         rateDisclosure: getRateDisclosureForCosts(yearCosts, filters.currency),
         year: validation.chartYear
       });
@@ -452,12 +459,12 @@ function YearlyBarChartSection() {
                       0,
                       (dataMax) => (dataMax > 0 ? dataMax * 1.15 : 1)
                     ]}
-                    tickFormatter={formatDisplayAmount}
+                    tickFormatter={(value) => formatAmount(value, yearlyResult.currency)}
                     width={72}
                   />
                   <Tooltip
                     formatter={(value) =>
-                      `${formatDisplayAmount(value)} ${yearlyResult.currency}`
+                      `${formatAmount(value, yearlyResult.currency)} ${yearlyResult.currency}`
                     }
                     labelFormatter={(_label, payload) =>
                       payload?.[0]?.payload?.label ?? ''
@@ -469,7 +476,7 @@ function YearlyBarChartSection() {
                       dataKey="total"
                       fill="#1E293B"
                       fontSize={12}
-                      formatter={formatPositiveBarValueLabel}
+                      formatter={(value) => formatPositiveBarValueLabel(value, yearlyResult.currency)}
                       position="top"
                     />
                   </Bar>
@@ -494,7 +501,7 @@ function YearlyBarChartSection() {
                     <TableRow key={entry.month}>
                       <TableCell>{entry.label}</TableCell>
                       <TableCell align="right">
-                        {formatDisplayAmount(entry.total)}
+                        {formatAmount(entry.amount, entry.currency)}
                       </TableCell>
                       <TableCell>{entry.currency}</TableCell>
                     </TableRow>

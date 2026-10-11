@@ -33,7 +33,7 @@ import * as pdfExportService from '../services/export/pdfExportService.js';
 import {
   getYearlyReportExportFilename
 } from '../utils/exportFilenames.js';
-import { formatDisplayAmount } from '../utils/amountFormat.js';
+import { formatAmount } from '../lib/money/format.js';
 import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
@@ -192,7 +192,8 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
     return buildYearlyReportExportModel({
       costs: sortedCosts,
       rateDisclosure,
-      report
+      report,
+      totalAmount: report.totalAmount
     });
   }
 
@@ -343,7 +344,7 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
                 Report currency: {report.total.currency}
               </Typography>
               <Typography fontWeight={700} variant="body1">
-                Total: {formatDisplayAmount(report.total.sum)}{' '}
+                Total: {formatAmount(report.totalAmount, report.total.currency)}{' '}
                 {report.total.currency}
               </Typography>
             </Box>

@@ -9,7 +9,19 @@
  * getting the required total from getReport() itself — the required
  * getReport() contract and its return shape are never modified.
  */
-import { buildYearlyMonthlyTotals } from '../utils/yearlyAggregation.js';
+import { getCachedExchangeRates } from '../lib/exchangeRatesCache.js';
+import { amountToNumber, normalizeAmount } from '../lib/money/decimal.js';
+import { buildYearlyFinancials, sumCostsExact } from '../lib/money/financials.js';
+
+// Exact total behind a getReport() result. Real results carry their cost
+// rows, so the exact sum is rebuilt from them with the same canonical
+// calculation getReport() used; a report with no rows is its reported total (0 for a real
+// getReport(); a test double may report a total only).
+function getExactMonthlyTotal(monthlyReport, currency) {
+  return monthlyReport.costs?.length
+    ? sumCostsExact(monthlyReport.costs, currency, getCachedExchangeRates())
+    : normalizeAmount(monthlyReport.total.sum);
+}
 
 // Full-detail copy (all date/time fields) for the app's own report tables,
 // as opposed to db.js's own toReportCost() which intentionally exposes only
@@ -58,7 +70,10 @@ export function buildDetailedMonthlyReport(database, currency, year, month) {
     total: {
       currency: monthlyReport.total.currency,
       sum: monthlyReport.total.sum
-    }
+    },
+    // M2A.2: the exact (unrounded) decimal total the displayed and exported
+    // figure is rounded from. `total.sum` stays the legacy Number.
+    totalAmount: getExactMonthlyTotal(monthlyReport, currency)
   };
 }
 
@@ -76,23 +91,23 @@ export function buildDetailedYearlyReport(database, currency, year) {
     .getAllCosts()
     .filter((cost) => cost.date.year === year)
     .map(copyDetailedCost);
-  const monthlyTotals = buildYearlyMonthlyTotals(
+  // M2A.2: the yearly total is the exact sum of the twelve exact monthly
+  // totals (never of rounded ones); `total.sum` is the legacy Number of it.
+  const yearly = buildYearlyFinancials(
     (reportCurrency, reportYear, reportMonth) =>
       database.getReport(reportCurrency, reportYear, reportMonth),
     currency,
-    year
+    year,
+    getCachedExchangeRates()
   );
-  // Sum the 12 already-converted monthly totals into one yearly figure.
-  const yearlyTotal = monthlyTotals.reduce((total, month) => {
-    return total + month.total;
-  }, 0);
 
   return {
     year,
     costs,
     total: {
       currency,
-      sum: yearlyTotal
-    }
+      sum: amountToNumber(yearly.totalAmount)
+    },
+    totalAmount: yearly.totalAmount
   };
 }

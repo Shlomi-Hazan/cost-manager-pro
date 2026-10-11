@@ -17,7 +17,9 @@ const sheetNames = {
 };
 
 // Excel number-format strings, applied via numericCell() below.
-const amountFormatPattern = '#,##0.######';
+// At least two decimals (rounded totals), up to eight (stored sums that were
+// entered with more precision are shown, not hidden).
+const amountFormatPattern = '#,##0.00######';
 const percentageFormatPattern = '0.0%';
 const yearFormatPattern = '0';
 

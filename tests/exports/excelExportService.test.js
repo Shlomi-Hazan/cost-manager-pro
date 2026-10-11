@@ -89,7 +89,7 @@ describe('excelExportService', () => {
     expect(sheets[0].data[6][1]).toMatchObject({
       value: 127.5,
       type: Number,
-      format: '#,##0.######'
+      format: '#,##0.00######'
     });
     expect(sheets[1].stickyRowsCount).toBe(1);
     expect(rowValues(sheets[1].data[0])).toEqual([
@@ -121,7 +121,7 @@ describe('excelExportService', () => {
     expect(sheets[1].data[1][4]).toMatchObject({
       value: 2,
       type: Number,
-      format: '#,##0.######'
+      format: '#,##0.00######'
     });
     expect(sheets[1].data[1][2]).toMatchObject({ wrap: true });
   });
@@ -152,7 +152,7 @@ describe('excelExportService', () => {
     expect(sheets[1].data[1][4]).toMatchObject({
       value: 100,
       type: Number,
-      format: '#,##0.######'
+      format: '#,##0.00######'
     });
   });
 
@@ -185,7 +185,7 @@ describe('excelExportService', () => {
     expect(sheets[1].data[1][1]).toMatchObject({
       value: 125,
       type: Number,
-      format: '#,##0.######'
+      format: '#,##0.00######'
     });
     expect(sheets[1].data[1][2]).toMatchObject({
       value: 1,
@@ -225,7 +225,7 @@ describe('excelExportService', () => {
     expect(sheets[1].data[1][1]).toMatchObject({
       value: 100,
       type: Number,
-      format: '#,##0.######'
+      format: '#,##0.00######'
     });
   });
 });

@@ -6,11 +6,14 @@
  * a report/chart's raw data is shaped.
  */
 import { formatDateForDisplay, formatTime } from '../../utils/dateTime.js';
+import { percentageToRatio, sumAmounts } from '../../lib/money/decimal.js';
 import {
-  formatDisplayAmount,
-  formatDisplayPercentage
-} from '../../utils/amountFormat.js';
-import { addCategoryShare } from '../../utils/chartPresentation.js';
+  formatAmount,
+  formatRatioAsPercentage,
+  formatStoredAmount,
+  roundForCurrency
+} from '../../lib/money/format.js';
+import { buildCategoryFinancials } from '../../lib/money/financials.js';
 
 const monthNames = [
   'January',
@@ -39,16 +42,39 @@ function copyRows(rows) {
 
 // PDF table cells are plain text, so numeric fields need explicit
 // formatting here rather than relying on a spreadsheet's own number types.
-function formatPdfCell(key, value) {
-  if (key === 'sum' || key === 'total') {
-    return formatDisplayAmount(value);
+function formatPdfCell(key, value, row) {
+  // An original stored sum keeps its own precision; a computed total is
+  // rounded once to the currency's minor unit. Same formatters as the UI.
+  if (key === 'sum') {
+    return formatStoredAmount(value, row.currency);
+  }
+
+  if (key === 'total') {
+    return formatAmount(String(value), row.currency);
   }
 
   if (key === 'percentage') {
-    return formatDisplayPercentage(value);
+    return formatRatioAsPercentage(value);
   }
 
   return value;
+}
+
+/*
+ * M2A.2 export semantics (Policy B). A computed total (report total, category
+ * total, month total) is rounded ONCE to the currency's minor unit, half away
+ * from zero, and written as that rounded value: a real number in Excel (with
+ * a 2-decimal format) and the identical text in the PDF. The exact value it
+ * was rounded from is not stored in the file. Original per-cost sums are the
+ * stored values, never rounded. Callers that have the exact canonical amount
+ * pass it; otherwise the Number given is used as the exact value.
+ */
+function roundedTotal(exactAmount, currency) {
+  return Number(roundForCurrency(exactAmount, currency));
+}
+
+function totalLabel(exactAmount, currency) {
+  return `${formatAmount(exactAmount, currency)} ${currency}`;
 }
 
 // Pre-M2 hotfix: when a figure in an export depends on converted amounts,
@@ -69,7 +95,7 @@ function withRateDisclosure(model, rateDisclosure) {
 
 // Reshapes a Monthly Report + its raw costs into the generic { rows,
 // summary, columns } model both the Excel and PDF exporters consume.
-function createMonthlyReportExportModel({ report, costs }) {
+function createMonthlyReportExportModel({ report, costs, totalAmount = report.total.sum }) {
   const rows = costs.map((cost) => ({
     day: cost.date.day,
     time: formatTime(cost.date),
@@ -86,7 +112,7 @@ function createMonthlyReportExportModel({ report, costs }) {
     summary: [
       ['Period', `${getMonthName(report.month)} ${report.year}`],
       ['Report Currency', report.total.currency],
-      ['Total', report.total.sum],
+      ['Total', roundedTotal(totalAmount, report.total.currency)],
       ['Number of Costs', rows.length]
     ],
     // metadata mirrors summary's values as machine-readable fields, for
@@ -98,8 +124,8 @@ function createMonthlyReportExportModel({ report, costs }) {
       periodLabel: `${getMonthName(report.month)} ${report.year}`,
       year: report.year,
       currency: report.total.currency,
-      total: report.total.sum,
-      totalLabel: `${formatDisplayAmount(report.total.sum)} ${report.total.currency}`
+      total: roundedTotal(totalAmount, report.total.currency),
+      totalLabel: totalLabel(totalAmount, report.total.currency)
     },
     columns: ['Day', 'Time', 'Description', 'Category', 'Sum', 'Currency'],
     rows
@@ -108,7 +134,7 @@ function createMonthlyReportExportModel({ report, costs }) {
 
 // Same shape as buildMonthlyReportExportModel, minus the month field
 // (a yearly report row already carries its own full date).
-function createYearlyReportExportModel({ report, costs }) {
+function createYearlyReportExportModel({ report, costs, totalAmount = report.total.sum }) {
   const rows = costs.map((cost) => ({
     date: formatDateForDisplay(cost.date),
     time: formatTime(cost.date),
@@ -124,7 +150,7 @@ function createYearlyReportExportModel({ report, costs }) {
     summary: [
       ['Year', report.year],
       ['Report Currency', report.total.currency],
-      ['Total', report.total.sum],
+      ['Total', roundedTotal(totalAmount, report.total.currency)],
       ['Number of Costs', rows.length]
     ],
     // Same metadata/summary duplication pattern as the monthly model above.
@@ -132,23 +158,35 @@ function createYearlyReportExportModel({ report, costs }) {
       numberOfCosts: rows.length,
       year: report.year,
       currency: report.total.currency,
-      total: report.total.sum,
-      totalLabel: `${formatDisplayAmount(report.total.sum)} ${report.total.currency}`
+      total: roundedTotal(totalAmount, report.total.currency),
+      totalLabel: totalLabel(totalAmount, report.total.currency)
     },
     columns: ['Date', 'Time', 'Description', 'Category', 'Sum', 'Currency'],
     rows
   };
 }
 
-// Adds each category's percentage share before shaping rows for export.
-function createPieChartExportModel({ report, chartData }) {
-  const rows = addCategoryShare(chartData).map((entry) => ({
+// Rows come from the canonical category calculation. Callers pass the
+// `financials` they displayed; without it (older callers) the exact figures
+// are rebuilt here from the given Number totals.
+function createPieChartExportModel({ report, chartData, financials }) {
+  const currency = report.total.currency;
+  const canonical =
+    financials ??
+    buildCategoryFinancials(
+      chartData.map((entry) => ({ category: entry.category, sum: entry.total, currency })),
+      currency,
+      null
+    );
+  const rows = canonical.entries.map((entry) => ({
     category: entry.category,
-    total: entry.total,
-    percentage: entry.percentage,
-    currency: report.total.currency
+    total: roundedTotal(entry.amount, currency),
+    // The rounded share (one decimal), as a 0-1 ratio, so the file shows
+    // exactly what the screen shows.
+    percentage: Number(percentageToRatio(entry.percentageText)),
+    currency
   }));
-  const total = chartData.reduce((sum, entry) => sum + entry.total, 0);
+  const total = roundedTotal(canonical.totalAmount, currency);
 
   return {
     type: 'pie-chart',
@@ -168,7 +206,7 @@ function createPieChartExportModel({ report, chartData }) {
       year: report.year,
       currency: report.total.currency,
       total,
-      totalLabel: `${formatDisplayAmount(total)} ${report.total.currency}`
+      totalLabel: totalLabel(canonical.totalAmount, currency)
     },
     columns: ['Category', 'Total', 'Share', 'Currency'],
     rows
@@ -179,15 +217,16 @@ function createPieChartExportModel({ report, chartData }) {
 function createBarChartExportModel({ yearlyResult }) {
   const rows = yearlyResult.monthlyTotals.map((entry) => ({
     month: entry.label,
-    total: entry.total,
+    total: roundedTotal(entry.amount ?? entry.total, entry.currency),
     currency: entry.currency
   }));
-  const annualTotal = yearlyResult.monthlyTotals.reduce(
-    (sum, entry) => sum + entry.total,
-    0
-  );
+  // The annual total is the exact sum of the exact monthly amounts.
+  const annualAmount =
+    yearlyResult.totalAmount ??
+    sumAmounts(yearlyResult.monthlyTotals.map((entry) => entry.amount ?? entry.total));
+  const annualTotal = roundedTotal(annualAmount, yearlyResult.currency);
   const monthsWithCosts = yearlyResult.monthlyTotals.filter(
-    (entry) => entry.total > 0
+    (entry) => Number(entry.amount ?? entry.total) > 0
   ).length;
 
   return {
@@ -206,7 +245,7 @@ function createBarChartExportModel({ yearlyResult }) {
       year: yearlyResult.year,
       currency: yearlyResult.currency,
       annualTotal,
-      annualTotalLabel: `${formatDisplayAmount(annualTotal)} ${yearlyResult.currency}`,
+      annualTotalLabel: totalLabel(annualAmount, yearlyResult.currency),
       monthsWithCosts
     },
     columns: ['Month', 'Total', 'Currency'],
@@ -234,6 +273,6 @@ export function buildBarChartExportModel({ rateDisclosure = null, ...input }) {
 
 export function getModelRowsForPdf(model) {
   return copyRows(model.rows).map((row) =>
-    Object.entries(row).map(([key, value]) => formatPdfCell(key, value))
+    Object.entries(row).map(([key, value]) => formatPdfCell(key, value, row))
   );
 }

@@ -101,7 +101,7 @@ function expectCategoryTotal({ category, total, share, currency }) {
   const row = within(table).getByRole('row', { name: new RegExp(category) });
 
   expect(within(row).getByText(category)).toBeInTheDocument();
-  expect(within(row).getByText(String(total))).toBeInTheDocument();
+  expect(within(row).getByText(Number(total).toFixed(2))).toBeInTheDocument();
   if (share) {
     expect(within(row).getByText(share)).toBeInTheDocument();
   }
@@ -236,13 +236,13 @@ describe('ChartsPage', () => {
     expectCategoryTotal({
       category: 'Food',
       total: 100,
-      share: '80%',
+      share: '80.0%',
       currency: 'USD'
     });
     expectCategoryTotal({
       category: 'Travel',
       total: 25,
-      share: '20%',
+      share: '20.0%',
       currency: 'USD'
     });
   });
@@ -437,7 +437,7 @@ describe('ChartsPage', () => {
     expectCategoryTotal({
       category: 'Food',
       total: 200,
-      share: '100%',
+      share: '100.0%',
       currency: 'USD'
     });
   });
@@ -461,7 +461,7 @@ describe('ChartsPage', () => {
     expectCategoryTotal({
       category: 'Food',
       total: 75,
-      share: '100%',
+      share: '100.0%',
       currency: 'USD'
     });
   });

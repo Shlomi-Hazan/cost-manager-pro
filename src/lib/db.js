@@ -24,7 +24,8 @@
  * treated as a protected, external contract throughout this file.
  */
 import { getCachedExchangeRates } from './exchangeRatesCache.js';
-import { convertCurrency } from '../utils/currency.js';
+import { amountToNumber } from './money/decimal.js';
+import { sumRecordsInCurrency } from './money/money.js';
 import {
   copyCostRecord,
   isSupportedCurrency,
@@ -142,25 +143,21 @@ function toReportCost(cost) {
 // which is what lets the official same-currency sample test
 // (200 USD + 400 USD, getReport("USD")) pass with no rates cache populated.
 function calculateSameCurrencyTotal(costs, targetCurrency) {
-  const requiresConversion = costs.some((cost) => cost.currency !== targetCurrency);
-
-  if (!requiresConversion) {
-    return costs.reduce((total, cost) => total + cost.sum, 0);
-  }
-
-  const cachedRates = getCachedExchangeRates();
-
-  if (cachedRates === null) {
-    // getReport() remains synchronous; exchange rates must be fetched and cached
-    // before cross-currency totals can be calculated.
-    throw new Error(
+  // M2A.2: the exact decimal sum comes from the shared money layer (no
+  // per-cost rounding, no floating-point accumulation). The pinned
+  // `total.sum` field stays a Number, so the exact decimal string is turned
+  // into a Number only here, at this legacy-contract boundary. The app's
+  // reports and charts use the exact string (see canonicalReports.js).
+  return amountToNumber(
+    sumRecordsInCurrency(
+      costs,
+      targetCurrency,
+      costs.some((cost) => cost.currency !== targetCurrency) ? getCachedExchangeRates() : null,
+      // getReport() remains synchronous; exchange rates must be fetched and
+      // cached before cross-currency totals can be calculated.
       'Cross-currency report totals require cached exchange rates.'
-    );
-  }
-
-  return costs.reduce((total, cost) => {
-    return total + convertCurrency(cost.sum, cost.currency, targetCurrency, cachedRates);
-  }, 0);
+    )
+  );
 }
 
 /**

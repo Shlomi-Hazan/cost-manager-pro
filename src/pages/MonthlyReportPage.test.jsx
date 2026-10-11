@@ -88,7 +88,7 @@ function expectReportRow({ description, category, sum, currency, day, time }) {
   expect(within(row).getByText(time)).toBeInTheDocument();
   expect(within(row).getByText(description)).toBeInTheDocument();
   expect(within(row).getByText(category)).toBeInTheDocument();
-  expect(within(row).getByText(String(sum))).toBeInTheDocument();
+  expect(within(row).getByText(Number(sum).toFixed(2))).toBeInTheDocument();
   expect(within(row).getByText(currency)).toBeInTheDocument();
 }
 
@@ -221,7 +221,7 @@ describe('MonthlyReportPage', () => {
 
     expect(screen.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument();
     expect(screen.getByText('Report currency: USD')).toBeInTheDocument();
-    expect(screen.getByText('Total: 150 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 150.00 USD')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument();
     expectReportRow({
       description: 'Groceries',
@@ -252,7 +252,7 @@ describe('MonthlyReportPage', () => {
 
     expect(screen.getByRole('heading', { name: 'September 2026' })).toBeInTheDocument();
     expect(screen.getByText('No costs found for this month.')).toBeInTheDocument();
-    expect(screen.getByText('Total: 0 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 0.00 USD')).toBeInTheDocument();
   });
 
   it('displays a selected-currency total while preserving item currencies', async () => {
@@ -286,7 +286,7 @@ describe('MonthlyReportPage', () => {
     await generateReport(user);
 
     expect(screen.getByText('Report currency: ILS')).toBeInTheDocument();
-    expect(screen.getByText('Total: 800 ILS')).toBeInTheDocument();
+    expect(screen.getByText('Total: 800.00 ILS')).toBeInTheDocument();
     expectReportRow({
       description: 'Groceries',
       category: 'FOOD',
@@ -331,7 +331,7 @@ describe('MonthlyReportPage', () => {
     renderMonthlyReportPage();
     await generateReport(user);
 
-    expect(screen.getByText('Total: 200 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 200.00 USD')).toBeInTheDocument();
     expect(screen.getByText('Cached train')).toBeInTheDocument();
   });
 
@@ -385,7 +385,7 @@ describe('MonthlyReportPage', () => {
     await generateReport(user);
 
     expect(screen.getByText('Same currency lunch')).toBeInTheDocument();
-    expect(screen.getByText('Total: 75 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 75.00 USD')).toBeInTheDocument();
   });
 
   it('rejects invalid report years before requesting rates', async () => {
@@ -440,7 +440,7 @@ describe('MonthlyReportPage', () => {
     await generateReport(user);
 
     expect(getColumnValues(2)).toEqual(['banana', 'Apple', 'car']);
-    expect(screen.getByText('Total: 127.5 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 127.50 USD')).toBeInTheDocument();
 
     await sortBy(user, 'Day');
 
@@ -450,7 +450,7 @@ describe('MonthlyReportPage', () => {
     );
     expect(getColumnValues(0)).toEqual(['2', '10', '24']);
     expect(getColumnValues(2)).toEqual(['Apple', 'banana', 'car']);
-    expect(screen.getByText('Total: 127.5 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 127.50 USD')).toBeInTheDocument();
 
     await sortBy(user, 'Day');
 
@@ -460,7 +460,7 @@ describe('MonthlyReportPage', () => {
     );
     expect(getColumnValues(0)).toEqual(['24', '10', '2']);
     expect(getColumnValues(2)).toEqual(['car', 'banana', 'Apple']);
-    expect(screen.getByText('Total: 127.5 USD')).toBeInTheDocument();
+    expect(screen.getByText('Total: 127.50 USD')).toBeInTheDocument();
   });
 
   it('sorts by Time chronologically', async () => {
@@ -485,7 +485,7 @@ describe('MonthlyReportPage', () => {
     await generateReport(user);
     await sortBy(user, 'Sum');
 
-    expect(getColumnValues(4)).toEqual(['2', '25.5', '100']);
+    expect(getColumnValues(4)).toEqual(['2.00', '25.50', '100.00']);
     expect(getColumnValues(2)).toEqual(['Apple', 'car', 'banana']);
   });
 
