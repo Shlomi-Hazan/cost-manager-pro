@@ -31,13 +31,13 @@ import SectionCard from '../components/common/SectionCard.jsx';
 import { commonCategories } from '../constants/categories.js';
 import { supportedCurrencies } from '../constants/currencies.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
-import { normalizeCategoryInput } from '../utils/category.js';
+import { validateCostInput } from '../lib/costInput.js';
+import { getAmountDataQualityNotes } from '../lib/dataQuality.js';
+import { getCostInputMessages } from '../utils/costInputMessages.js';
 import {
   formatDateForDisplay,
   formatDateForInput,
-  formatTime,
-  parseDateInput,
-  parseTimeInput
+  formatTime
 } from '../utils/dateTime.js';
 import { formatStoredAmount } from '../lib/money/format.js';
 import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
@@ -64,55 +64,36 @@ function createEditValues(cost) {
   };
 }
 
-function validateEditValues(values) {
-  const errors = {};
-  const trimmedSum = values.sum.trim();
-  const numericSum = Number(trimmedSum);
-  const normalizedCategory = normalizeCategoryInput(values.category);
-  const trimmedDescription = values.description.trim();
-  const parsedDate = parseDateInput(values.date.trim());
-  const parsedTime = parseTimeInput(values.time.trim());
-
-  if (trimmedSum === '') {
-    errors.sum = 'Enter a cost sum.';
-  } else if (!Number.isFinite(numericSum)) {
-    errors.sum = 'Enter a valid numeric sum.';
-  }
-
-  // Currency/category/description: presence and support checks only.
-  if (!supportedCurrencies.includes(values.currency)) {
-    errors.currency = 'Select a supported currency.';
-  }
-
-  if (normalizedCategory === '') {
-    errors.category = 'Enter a category.';
-  }
-
-  if (trimmedDescription === '') {
-    errors.description = 'Enter a description.';
-  }
-
-  // Date/time: presence, then format (parseDateInput/parseTimeInput).
-  if (values.date.trim() === '') {
-    errors.date = 'Enter a date.';
-  } else if (parsedDate === null) {
-    errors.date = 'Enter a date in YYYY-MM-DD format.';
-  }
-
-  if (values.time.trim() === '') {
-    errors.time = 'Enter a time.';
-  } else if (parsedTime === null) {
-    errors.time = 'Enter a time in HH:mm format.';
-  }
+// Delegates to the central policy (lib/costInput.js). `original` is the
+// stored record: a field the user left unchanged is not revalidated and keeps
+// its exact stored value, so editing one field of an old record (for example
+// an amount with extra decimals, or a zero or negative amount from before
+// the current rules) never fails on, or rewrites, the fields that were not
+// touched. Only text the user changed has to meet today's rules.
+function validateEditValues(values, original) {
+  const result = validateCostInput(values, {
+    sum: original.sum,
+    category: original.category,
+    description: original.description,
+    date: formatDateForInput(original.date),
+    time: formatTime(original.date)
+  });
+  const { value } = result;
 
   return {
-    errors,
-    isValid: Object.keys(errors).length === 0,
-    normalizedCategory,
-    numericSum,
-    parsedDate,
-    parsedTime,
-    trimmedDescription
+    errors: getCostInputMessages(result.errors),
+    isValid: result.isValid,
+    sum: value.sum,
+    category: value.category,
+    description: value.description,
+    // Changed parts come from the form; unchanged parts stay exactly as stored.
+    date: {
+      day: value.date?.day ?? original.date.day,
+      month: value.date?.month ?? original.date.month,
+      year: value.date?.year ?? original.date.year,
+      hour: value.time?.hour ?? original.date.hour,
+      minute: value.time?.minute ?? original.date.minute
+    }
   };
 }
 
@@ -243,7 +224,7 @@ function ManageCostsPage() {
     event.preventDefault();
     setEditFeedback('');
 
-    const validation = validateEditValues(editValues);
+    const validation = validateEditValues(editValues, editCost);
 
     setEditErrors(validation.errors);
 
@@ -256,14 +237,11 @@ function ManageCostsPage() {
       // updateCost() preserves editCost.id — this can only ever change the
       // sum/currency/category/description/date of that specific row.
       const updatedCost = costsDatabase.updateCost(editCost.id, {
-        sum: validation.numericSum,
+        sum: validation.sum,
         currency: editValues.currency,
-        category: validation.normalizedCategory,
-        description: validation.trimmedDescription,
-        date: {
-          ...validation.parsedDate,
-          ...validation.parsedTime
-        }
+        category: validation.category,
+        description: validation.description,
+        date: validation.date
       });
 
       loadCosts();
@@ -447,7 +425,13 @@ function ManageCostsPage() {
                   {/* Sum: numeric keyboard on mobile, otherwise a plain text input. */}
                   <TextField
                     error={Boolean(editErrors.sum)}
-                    helperText={editErrors.sum ?? 'Use a numeric value.'}
+                    helperText={
+                      editErrors.sum ??
+                      (editValues.sum.trim() === String(editCost.sum) &&
+                      getAmountDataQualityNotes(editCost).length > 0
+                        ? 'This saved amount is kept exactly as stored. A new amount must be greater than zero and use the currency\'s decimal places.'
+                        : 'Use digits and an optional decimal point, for example 12.50.')
+                    }
                     inputMode="decimal"
                     label="Sum"
                     name="sum"

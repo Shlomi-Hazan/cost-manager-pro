@@ -303,7 +303,7 @@ describe('ManageCostsPage', () => {
     changeField(dialog, 'Time', '99:99');
     await saveEdit(user, dialog);
 
-    expect(within(dialog).getByText('Enter a valid numeric sum.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Enter the sum using digits and an optional decimal point, for example 12.50.')).toBeInTheDocument();
     expect(within(dialog).getByText('Enter a category.')).toBeInTheDocument();
     expect(within(dialog).getByText('Enter a description.')).toBeInTheDocument();
     expect(within(dialog).getByText('Enter a date.')).toBeInTheDocument();
@@ -524,4 +524,103 @@ describe('ManageCostsPage', () => {
 
     expect(within(secondDialog).queryByRole('alert')).not.toBeInTheDocument();
   });
+});
+
+// M2A.3: editing an old record must never rewrite its stored amount unless
+// the user changes the amount itself.
+describe('ManageCostsPage legacy amounts', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    setLocalDate(2026, 8, 24, 10, 30);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    localStorage.clear();
+  });
+
+  function storedSums() {
+    return costsDatabase.getAllCosts().map((cost) => cost.sum);
+  }
+
+  it.each([[0], [-5.5], [12.345], [1e-21], [1234.56789]])(
+    'saving an edit to the description keeps the stored amount %s exactly',
+    async (sum) => {
+      const user = setupUser();
+      addStoredCost({ sum });
+      renderManageCostsPage();
+
+      const dialog = await openEditDialog(user, getDataRows()[0]);
+
+      changeField(dialog, 'Description', 'Renamed');
+      await saveEdit(user, dialog);
+
+      expect(screen.getByText('Cost updated successfully.')).toBeInTheDocument();
+      expect(storedSums()).toEqual([sum]);
+      expect(Object.is(storedSums()[0], sum)).toBe(true);
+      expect(costsDatabase.getAllCosts()[0].description).toBe('Renamed');
+    }
+  );
+
+  it('explains, without blocking, that a legacy amount is kept as stored', async () => {
+    const user = setupUser();
+    addStoredCost({ sum: -5.5 });
+    renderManageCostsPage();
+
+    const dialog = await openEditDialog(user, getDataRows()[0]);
+
+    expect(within(dialog).getByText(/kept exactly as stored/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps a legacy amount when only the currency is changed', async () => {
+    const user = setupUser();
+    addStoredCost({ sum: 12.345, currency: 'USD' });
+    renderManageCostsPage();
+
+    const dialog = await openEditDialog(user, getDataRows()[0]);
+
+    await chooseCurrency(user, dialog, 'EUR');
+    await saveEdit(user, dialog);
+
+    expect(costsDatabase.getAllCosts()[0]).toMatchObject({ sum: 12.345, currency: 'EUR' });
+  });
+
+  it('applies the strict rules as soon as the amount itself is edited', async () => {
+    const user = setupUser();
+    addStoredCost({ sum: 12.345 });
+    renderManageCostsPage();
+
+    const dialog = await openEditDialog(user, getDataRows()[0]);
+
+    changeField(dialog, 'Sum', '0');
+    await saveEdit(user, dialog);
+    expect(within(dialog).getByText('Enter an amount greater than zero.')).toBeInTheDocument();
+
+    changeField(dialog, 'Sum', '12.346');
+    await saveEdit(user, dialog);
+    expect(within(dialog).getByText('Use at most 2 decimal places.')).toBeInTheDocument();
+    expect(storedSums()).toEqual([12.345]);
+
+    changeField(dialog, 'Sum', '12.34');
+    await saveEdit(user, dialog);
+    expect(storedSums()).toEqual([12.34]);
+  });
+
+  it('keeps an old date and time that the user did not touch', async () => {
+    const user = setupUser();
+    addStoredCost({ sum: 5, year: 2026, month: 2, day: 28, hour: 23, minute: 59 });
+    renderManageCostsPage();
+
+    const dialog = await openEditDialog(user, getDataRows()[0]);
+
+    changeField(dialog, 'Description', 'Only the note changed');
+    await saveEdit(user, dialog);
+
+    expect(costsDatabase.getAllCosts()[0].date).toEqual({ day: 28, month: 2, year: 2026, hour: 23, minute: 59 });
+  });
+  // Impossible dates (30 February...) are covered in tests/validation: a date
+  // input cannot even carry such a value, so the form never reaches them.
 });
