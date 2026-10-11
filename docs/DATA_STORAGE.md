@@ -54,7 +54,8 @@ Every record must pass the same validation as the `db.js` API:
 - an integer `date` with all of `day`, `month`, `year`, `hour`, `minute`, forming a real calendar date and time
 
 Amounts are stored as JSON numbers and are never rounded by the storage
-layer. `EURO` is unchanged; moving to ISO `EUR` is planned for M2.
+layer. Reports, charts, and exports only read them (M2A.2: computing exact
+totals writes nothing). `EURO` is unchanged; moving to ISO `EUR` is planned for M2.
 
 ## 3. Migration policy
 

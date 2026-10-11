@@ -10,7 +10,7 @@ work starts. **Approving one milestone never approves the next one**
 | M0 | Project Independence & Governance | **Done** (PR #1, merged 2026-10-08) |
 | M1 | Reliability, Storage & Deployment | **Done** (PR #2, merged 2026-10-09; deployed to Vercel) |
 | Pre-M2 hotfix | Disclose demonstration exchange rates | **In progress** (draft PR) |
-| M2A | Financial Accuracy: money foundation (proposed scope) | Not started |
+| M2A | Financial Accuracy: money foundation (proposed scope) | M2A.2 (precision engine) in review; M2A.3 not started |
 | M2B | Financial Accuracy: currency engine and live rates (proposed scope) | Not started |
 | M3 | Design System & App Shell | Not started |
 | M4 | Expense Management Experience | Not started |
@@ -102,7 +102,7 @@ Requirement IDs (`EXP-*`, `DATA-*`, and so on) are defined in
 - **Not in scope:** real rates, any provider integration, decimal
   arithmetic, rounding, `EURO` → `EUR`, migrations, or changes to
   calculations, storage, backups, or rate refresh and caching.
-- **Status:** a draft PR is open for review. M2A and M2B have not started.
+- **Status:** the hotfix is merged. M2A.2 (below) is in review; M2A.3 and M2B have not started.
 
 ## M2 — Financial Accuracy & Currency Engine (to be delivered as M2A and M2B)
 
@@ -118,6 +118,13 @@ Requirement IDs (`EXP-*`, `DATA-*`, and so on) are defined in
     each starts.
   - Rounding approaches must be compared with tests before the policy is
     approved (ADR-046).
+
+- **M2A.2 — done in a draft PR (ADR-047):** `big.js` decimal arithmetic behind
+  `src/lib/money/`, Policy B, half away from zero, one canonical calculation
+  for reports, charts, and exports, `Intl` formatting, and tests against an
+  independent BigInt oracle. Stored data and storage code are unchanged.
+  Still to do: **M2A.3** (validation, `EURO` → `EUR` migration) and **M2B**
+  (real dated rates). The default rates are still demonstration values.
 
 - **Goal:** Every amount the app shows is correct and clearly formatted.
 - **Expected scope:**

@@ -1700,15 +1700,14 @@ told users.
 
 Recorded from the product owner's review of the M2 audit:
 
-- **Decimal arithmetic:** `big.js` is selected. It is **not installed yet**,
-  and adding it needs its own PR.
+- **Decimal arithmetic:** `big.js` is selected. (Installed and used in M2A.2;
+  see ADR-047.)
 - **Rates provider:** Frankfurter, pinned to the European Central Bank's
   reference rates, is the planned source. Not integrated.
 - **Delivery:** M2 is split into M2A and M2B. The exact split is confirmed
   before each starts (the audit proposed M2A = money foundation, M2B =
   conversion engine and live rates).
-- **Rounding policy:** **PROVISIONAL.** Candidate approaches must be compared
-  with tests before the policy is approved.
+- **Rounding policy:** decided in ADR-047 (Policy B, half away from zero).
 
 ## Consequences
 
@@ -1716,6 +1715,93 @@ Recorded from the product owner's review of the M2 audit:
   (currency list, historical-rate policy, stale threshold, custom sources,
   zero and negative amounts) still need answers before M2A or M2B starts.
 - Until then, requirement statuses for CUR-5 and CUR-6 stay **Approved**.
+
+# ADR-047 — Precision-Safe Money: Policy B, Half Away From Zero, `big.js` (M2A.2)
+
+**Status:** ACCEPTED (implemented in M2A.2)  
+**Date:** 2026-10-11
+
+## Decision
+
+Approved by the product owner after the M2A.1 policy review:
+
+1. **Policy B.** Exact decimal values are kept through every conversion and
+   sum. Rounding happens **once**, where a figure is shown or exported. A cost
+   is never rounded before it is added to others, and no leftover cents are
+   allocated or hidden.
+2. **Rounding mode: half away from zero** (`0.125 → 0.13`, `-0.125 → -0.13`),
+   to the currency's minor unit (USD, ILS, GBP, EURO: 2 digits). Percentages
+   use ordinary one-decimal rounding and are not forced to total 100.0%.
+3. **`big.js` 7.0.1** (exact version) behind application-owned functions in
+   `src/lib/money/`. Callers never import it. It uses its own isolated
+   constructor (`Big()`), so `big.js`'s global settings are untouched. Strict
+   mode is on, so a floating-point `Number` cannot enter the engine except
+   through the engine's own `String(n)` conversion.
+4. **Amounts are decimal strings** (`"0.999"`), not floating-point Numbers,
+   inside the engine and between the canonical calculations and their
+   consumers. A Number is produced only at legacy boundaries: the pinned
+   `getReport().total.sum`, `convertCurrency()`'s return value, and chart
+   geometry. Never feed such a Number back into financial arithmetic.
+5. **Stored data is unchanged.** Stored `sum` values stay JSON numbers; no
+   schema, migration, backup, restore, or namespace change. Reports, charts,
+   and exports never write to storage. Historical amounts with more
+   precision than the currency's minor unit are shown as stored, never
+   rounded or rewritten.
+6. **One canonical calculation** (`src/lib/money/financials.js`): the monthly
+   total, category totals, yearly total (the exact sum of the exact monthly
+   totals), and the exports all derive from the same exact values.
+
+## Precision limits (stated honestly, not "infinite precision")
+
+- Addition and multiplication are exact for any size.
+- **Division is the only inexact step.** It is evaluated to **30 decimal
+  places**, half away from zero. A conversion is
+  `amount × targetRate ÷ sourceRate`: multiply first, divide **once**, so its
+  error is at most `5e-31` in the target currency. Rates are never rounded
+  before use. This is tested against an independent BigInt rational oracle.
+- A stored JSON `Number` is converted by its shortest decimal form
+  (`String(n)`). That is lossless up to 15 significant digits; a stored number
+  that already lost precision when it was parsed cannot be restored. Inputs
+  must be finite; the engine rejects NaN, Infinity, and non-decimal text.
+- Excel numeric cells hold a double (about 15 significant digits). See export
+  semantics.
+
+## Presentation and export semantics
+
+- **Screens.** Computed totals (report total, category totals, month totals,
+  yearly total) are rounded once to the currency's minor unit and shown with
+  `Intl.NumberFormat` (`halfExpand`, grouping, no scientific notation, and a
+  negative result that rounds to zero shows as zero). The label `EURO` is
+  mapped to ISO `EUR` for formatting only. The "Total" figures on pages show
+  a number followed by the currency code, as before. Per-cost amounts in
+  tables are the **stored** values: padded to the currency's two digits
+  (`25.50`) and never rounded (`0.333` stays `0.333`).
+- **Excel.** Computed totals (summary totals, category totals, monthly totals)
+  are **real numbers equal to the value rounded once** (for example `1` for
+  `0.999`), with a two-decimal number format; the exact value they were
+  rounded from is not in the file. Per-cost sums are the stored numbers
+  (format shows two to eight decimals). The Share column holds the displayed
+  one-decimal share. No decimal string is converted to a Number except after
+  rounding to the currency's minor unit, which a double represents to well
+  within Excel's 15 digits. Workbook structure and styles are unchanged.
+- **PDF.** Uses the same formatters as the screen, so the document text equals
+  the on-screen text.
+- The demo/unverified exchange-rate disclosure (ADR-045) is unchanged on
+  every converted screen and export.
+
+## Consequences (accepted tradeoffs)
+
+- Rounded components may not add up to the rounded total (three costs of 0.333
+  show `0.333` each; their total shows `1.00`). Rounded category amounts can
+  differ from the rounded total by a minor unit, and category percentages may
+  sum to 99.9% or 100.1%. Nothing is adjusted to hide this.
+- Reports, charts, and exports agree because every figure is the rounded
+  exact value of its own set of costs.
+- **Not done here:** moving `EURO` to ISO `EUR` and input validation (M2A.3),
+  real dated exchange rates and Frankfurter/ECB (M2B), and per-expense-date
+  rates. The default rates are still the fixed demonstration values.
+
+---
 
 ---
 
@@ -1800,7 +1886,7 @@ milestone:
 | OD-007 | What happens to `vanilla/db.js` and its tests (keep frozen or archive) | M1 or M7 |
 | OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | **Direction approved** (ADR-046): Frankfurter with ECB rates. Stale-rate handling and the privacy window for historical requests remain open (M2B) |
 | OD-009 | Migration from `EURO` to ISO `EUR`, and expanding the currency list | M2 |
-| OD-010 | Rounding policy and the rule for which calendar day an expense falls on | M2 |
+| OD-010 | Rounding policy and the rule for which calendar day an expense falls on | Rounding **decided** (ADR-047, M2A.2). The calendar-day rule remains open |
 | OD-011 | i18n library (or `Intl` with an in-house catalog) | M3 |
 | OD-012 | URL routing approach | M3 |
 | OD-013 | Storage engine (`localStorage` or IndexedDB) for larger data sets | `localStorage` kept in M1 (ADR-042); revisit later |

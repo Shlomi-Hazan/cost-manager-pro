@@ -102,8 +102,11 @@ high-risk:
   Never present them as real.
 - Never overwrite a stored expense's original amount or currency during
   conversion.
-- Rounding is defined and tested. Round only at the display edge, unless a
-  documented policy says otherwise.
+- Rounding is defined and tested (ADR-047: Policy B, half away from zero).
+  Round only at the display/export edge, and only once. Do all conversion and
+  addition on exact decimals through `src/lib/money/`; never use `Number`
+  arithmetic, `toFixed()`, or `Math.round(n * 100) / 100` for money, and never
+  round an expense before it is summed.
 - Be explicit about time zones and which calendar day an expense falls on.
 - **Protect user data.** Before changing a storage schema or key, plan the
   migration, test it, and make sure existing data stays readable. Never

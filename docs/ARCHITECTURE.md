@@ -140,6 +140,27 @@ Steps 1–4 come from the course's synchronous `getReport()` rule. That rule
 no longer applies (see the archive classification, item 1), so this design
 can be changed in M2.
 
+## 5a. Money and rounding (M2A.2)
+
+All financial arithmetic lives in `src/lib/money/` (ADR-047):
+
+```text
+decimal.js    big.js (isolated constructor) behind sumAmounts, convertDecimalAmount,
+              roundAmount, percentageOf, compareAmounts — amounts are decimal strings
+money.js      currency-aware convertMoney / sumRecordsInCurrency (rates injected)
+financials.js canonical monthly, category, and yearly totals (exact, unrounded)
+format.js     the only place money becomes text (Intl.NumberFormat, one rounding)
+```
+
+- Policy B: exact through every conversion and sum, one half-away-from-zero
+  rounding at display/export. Nothing is rounded per expense.
+- `db.getReport().total.sum`, `convertCurrency()`, and the legacy
+  `aggregateCostsByCategory()` keep their Number-returning shapes by calling
+  this layer and converting the exact result at the boundary.
+- Pages and exports use `financials.js` and `format.js`; the exact value is
+  carried as `totalAmount` / `amount` strings next to the legacy Number fields.
+- Division is evaluated to 30 decimal places (one division per conversion).
+
 ## 6. Navigation and state
 
 - `App.jsx` keeps `activePageId` in React state. There are no URLs, so a
