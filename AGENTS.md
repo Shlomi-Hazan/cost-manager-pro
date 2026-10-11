@@ -138,9 +138,11 @@ high-risk:
 - `vanilla/db.js`, `vanilla/db-test.html`, and their tests are frozen
   historical artifacts. Don't change them unless that is the authorized
   task. New features do not need to be copied into them.
-- The synchronous `getReport()`, the `EURO` identifier, and the
-  `localStorage` key format still exist in the code. Change them only in
-  their planned milestone, with tests and data migration
+- The synchronous `getReport()` and the `localStorage` key format still exist
+  in the code. The euro identifier is now ISO `EUR` (M2A.3); `EURO` survives
+  only as a read-only compatibility identifier for old data, old backups, old
+  rate sources, and the frozen `vanilla/` files. Change the rest only in their
+  planned milestone, with tests and data migration
   ([classification](docs/archive/course/README.md#course-constraint-classification-m0)).
 
 ## 10. Verification and honest reporting

@@ -42,20 +42,30 @@ is ever *read*, to offer an explicit import (§6).
 }
 ```
 
-- **Schema 1 (current):** the document above.
-- **Schema 0 (before M1):** a bare JSON array of the same records.
+- **Schema 2 (current, M2A.3):** the document above, with `"schemaVersion": 2`.
+  The euro is `EUR`.
+- **Schema 1 (M1 to M2A.2):** the same layout with `"schemaVersion": 1`. The
+  euro was the nonstandard `EURO`. Still read; upgraded in memory (§3).
+- **Schema 0 (before M1):** a bare JSON array of the same records (with
+  `EURO`). Still read and upgraded the same way.
 
 Every record must pass the same validation as the `db.js` API:
 
 - a non-empty string `id`, unique within the dataset
 - a finite number `sum`
-- `currency` is one of `USD`, `ILS`, `GBP`, `EURO`
+- `currency` is one of `USD`, `ILS`, `GBP`, `EUR` (in schema 2; `EURO` is not valid there)
 - string `category` and `description`
 - an integer `date` with all of `day`, `month`, `year`, `hour`, `minute`, forming a real calendar date and time
 
 Amounts are stored as JSON numbers and are never rounded by the storage
 layer. Reports, charts, and exports only read them (M2A.2: computing exact
-totals writes nothing). `EURO` is unchanged; moving to ISO `EUR` is planned for M2.
+totals writes nothing).
+
+**Stored-data validity is not the same as new-input rules.** The checks above
+accept everything an earlier version could have stored: zero and negative
+amounts, amounts with extra decimals or very small or large values, and old
+dates. The stricter rules for what a user types (M2A.3, ADR-048) are applied
+only to new input and to fields the user changes, never when data is read.
 
 ## 3. Migration policy
 
@@ -73,6 +83,31 @@ totals writes nothing). `EURO` is unchanged; moving to ISO `EUR` is planned for 
   saving is paused. It can be downloaded exactly as stored.
 - Any schema change needs a new migration step, tests with realistic data,
   and an ADR.
+
+### Schema 1 → 2 (M2A.3, ADR-048)
+
+- **Only the currency identifier changes:** `currency: "EURO"` becomes
+  `"EUR"`. Every other field, the record order, the ids, and the exact
+  amounts (including excess precision) are preserved.
+- **Nothing else is renamed.** An unknown or malformed currency (`euro`,
+  `EUROS`, ` EURO`, `XYZ`, a non-string) is not treated as a euro: it fails
+  validation and the dataset is reported as `damaged`. `EUR` inside a
+  schema 1 or schema 0 record is rejected too, because it was never valid
+  then. `EURO` inside a schema 2 document is rejected (it should have been
+  upgraded).
+- **Durability follows the M1 path.** The upgrade is in memory when data is
+  read; it becomes durable on the next save through the existing commit
+  sequence, which first keeps the exact schema 1 value as previous data
+  (`schema-migration`). Interrupted or failed saves leave the old data
+  readable, as before.
+- **Rollback risk.** Once schema 2 has been saved, an **older build of the
+  app** reports it as a newer, unsupported version and pauses saving (it
+  never reads or overwrites it). Nothing is lost: the older build can still
+  download the data as stored, and the pre-upgrade copy is kept as previous
+  data in the schema 1 format that the older build reads, so its "Restore
+  previous data" restores the pre-upgrade state (losing changes made after
+  the upgrade). A schema 2 backup file is not readable by the older build
+  (format version 2). There is no silent downgrade.
 
 ## 4. Data-loss safeguards
 
@@ -156,12 +191,12 @@ app.
 - On a new origin (such as a Vercel domain) there is no earlier data, so
   nothing is offered.
 
-## 7. Backup file format (version 1)
+## 7. Backup file format (version 2)
 
 ```json
 {
   "format": "cost-manager-pro-backup",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "2026-10-09T08:15:00.000Z",
   "app": "Cost Manager Pro",
   "costCount": 2,
@@ -185,7 +220,15 @@ app.
      will be replaced.
   3. The current data is then kept as previous data, the backup is
      written, and the result is read back to verify it.
-- Duplicate ids in a backup are rejected, never merged. v1 has no merge
+- **Format version N holds records written under expense schema N.**
+  Version 2 (M2A.3) says `EUR`. **Version 1 backups (`EURO`) are still
+  accepted**: their records are upgraded in memory with the same migration
+  as stored data, then fully validated, and the file itself is never
+  modified. A version 2 file that contains `EURO`, a version 1 file that
+  contains `EUR`, and any unknown currency are rejected as invalid, and
+  nothing is restored. New backups are always version 2, so they never
+  contain `EURO`, even when exported after restoring a version 1 backup.
+- Duplicate ids in a backup are rejected, never merged. There is no merge
   mode: a restore replaces the whole dataset.
 - Files over 10 MB are rejected.
 

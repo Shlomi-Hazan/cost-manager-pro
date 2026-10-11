@@ -26,7 +26,7 @@ data in your own browser.
   converted into a chosen currency.
 - **Charts:** a monthly pie chart by category and a yearly 12-month bar
   chart.
-- **Currencies:** USD, ILS, GBP, and EURO. The original amount and currency
+- **Currencies:** USD, ILS, GBP, and EUR. The original amount and currency
   of each expense are always kept.
 - **Exchange rates:** fetched from a configurable URL, validated, and
   cached. The default rates are **fixed sample values, not live market

@@ -1820,6 +1820,107 @@ Approved by the product owner after the M2A.1 policy review:
 
 ---
 
+# ADR-048 — ISO `EUR`, Schema 2 Migration, and Strict New-Input Validation (M2A.3)
+
+**Status:** ACCEPTED (implemented in M2A.3)  
+**Date:** 2026-10-12
+
+## Decision
+
+1. **Canonical currencies are `USD`, `ILS`, `GBP`, `EUR`.** `EURO` (kept from
+   the course, ADR-037) is never offered or written again. No currency is
+   added to the selectable list.
+2. **The euro upgrade is schema migration `1 → 2` in M1's existing chain**
+   (`costDocument.js`), not a new mechanism. Only `currency: "EURO"` becomes
+   `"EUR"`. Records, order, ids, dates, text, and exact amounts (including
+   excess precision) are unchanged. Unknown or malformed currencies are never
+   mapped; `EUR` inside a schema 0/1 record is rejected; `EURO` inside a
+   schema 2 document is rejected.
+3. **Reading never writes.** The migration becomes durable only through the
+   next save, via M1's commit sequence, which first keeps the exact schema 1
+   value as previous data. No storage API was changed; the M1 recovery
+   guarantees (pending snapshot, rollback, conflict and quota handling) are
+   untouched and still exercised by their original tests.
+4. **Backups are format version 2.** Version 1 backups are accepted and their
+   records upgraded in memory by the same migration; the file is never
+   modified. New backups never contain `EURO`.
+5. **Strict rules apply to NEW input only** (`lib/costInput.js`); stored-data
+   integrity stays permissive; optional data-quality notes are non-blocking
+   (`lib/dataQuality.js`). Nothing runs the strict rules on read.
+6. **Policy B (ADR-047) is unchanged.**
+
+## Blast radius (found by inventory, not search-and-replace)
+
+| Area | What changed |
+|---|---|
+| Registry | `constants/currencies.js` (`EUR`; `legacyEuroIdentifier` for compatibility) |
+| Stored data | schema 2, migration step, `upgradeCostRecords()` |
+| Backup, restore, legacy import, previous-data snapshots | all go through the same migration (`parseCostDocument` / `upgradeCostRecords`); format version 2 |
+| Rates | `public/exchange-rates.json` uses `EUR`; `validateExchangeRates()` reads `EURO` as the euro rate (below) |
+| Money formatting | `EUR` is native; the old `EURO → EUR` mapping was removed |
+| Reports, charts, exports, filenames | display the stored code; export filenames now end `-eur` |
+| Forms | Add Cost and Manage Costs use the central validator |
+| Tests | M1 fixtures give schema 1 and schema 2 documents explicitly |
+| **Not changed** | `vanilla/` (frozen; still `EURO`), the storage layer (`costStore`, `browserStorage`), the legacy storage key, the rates cache key/format, settings |
+
+## Rate-source compatibility (minimal, reversible)
+
+A custom source or an old cache that still uses `EURO` is read as the same
+euro rate, **in memory only**: nothing is rewritten, `EURO` is never emitted,
+and a source that gives `EUR` and `EURO` with different values is rejected.
+`EUR` is still required, so a source with neither is rejected and no total is
+invented. The demo / unverified disclosure is unchanged; no timestamps are
+added.
+
+**Open product decision:** this alias is a transition convenience. The
+alternative is to reject `EURO` sources and ask the user to update them. It
+can be removed later by deleting one branch of `validateExchangeRates()`; M2B
+replaces the rate pipeline anyway.
+
+## New-input rules (error codes, never message text)
+
+- **Amount:** plain decimal digits with an optional `.` and at least one digit
+  after it. `,` is not a separator; no sign, exponent, hex/binary, internal
+  whitespace, or Infinity (outer whitespace is trimmed). The text is checked
+  as exact decimal syntax **before** any `Number` conversion. Greater than
+  zero. At most the currency's decimals (2 for all four), 12 integer digits,
+  and 15 significant digits, counted as typed with no silent truncation.
+  Up to 15 significant digits a `Number` equals the typed decimal exactly.
+- **Category and description:** required, trimmed, at most **50** and **200**
+  characters (counted in code points), no control characters. *These limits
+  and the date years below are proposals for the product owner to confirm.*
+- **Date and time (when typed):** a real Gregorian date (leap years
+  included), years **1900-2999**, and `HH:mm`. Local calendar fields only: no
+  timezone conversion, nothing inferred for old records.
+- **Currency:** must be in the canonical registry.
+- **Error contract:** `{ code, params }` per field; English wording is in
+  `utils/costInputMessages.js` so Hebrew (M3) can replace it.
+
+## Legacy data and editing
+
+An edit validates only what the user changed. A field whose text is unchanged
+is not revalidated and keeps its exact stored value: a zero, negative,
+long-decimal, tiny or huge amount, an old date, an old category. This holds
+even when only the currency changes. A changed amount must pass today's rules.
+The edit dialog shows a non-blocking note that such an amount is kept as
+stored.
+
+## Consequences and limits
+
+- **Rollback risk:** see DATA_STORAGE.md §3. An older build treats schema 2 as
+  an unsupported newer version and pauses saving, and cannot read a version 2
+  backup; its "Restore previous data" can restore the pre-upgrade copy
+  (verified against the previous code). There is no silent downgrade.
+- `db.addCost()` stays permissive for programmatic callers (the strict rules
+  are enforced by the forms through the central validator).
+- `vanilla/` still uses `EURO`; it is frozen and unaffected.
+- A legacy negative amount still shows as a negative chart slice (existing
+  behavior for old data, not changed here).
+- **Not done:** real dated exchange rates (M2B), localization (M3), a
+  user-selectable expense date (M4).
+
+---
+
 ---
 
 # 2. Open Decisions
@@ -1902,7 +2003,7 @@ milestone:
 | OD-006 | Hosting provider for the live demo and how its storage stays separate from the original app | **Resolved in M1:** Vercel (ADR-044) and the `cost-manager-pro:` namespace (ADR-042). Deployment still needs approval |
 | OD-007 | What happens to `vanilla/db.js` and its tests (keep frozen or archive) | M1 or M7 |
 | OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | **Direction approved** (ADR-046): Frankfurter with ECB rates. Stale-rate handling and the privacy window for historical requests remain open (M2B) |
-| OD-009 | Migration from `EURO` to ISO `EUR`, and expanding the currency list | M2 |
+| OD-009 | Migration from `EURO` to ISO `EUR`, and expanding the currency list | `EUR` migration **decided and done** (ADR-048, M2A.3). Expanding the list remains open |
 | OD-010 | Rounding policy and the rule for which calendar day an expense falls on | Rounding **decided** (ADR-047, M2A.2). The calendar-day rule remains open |
 | OD-011 | i18n library (or `Intl` with an in-house catalog) | M3 |
 | OD-012 | URL routing approach | M3 |
