@@ -246,3 +246,87 @@ describe('one canonical pathway', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('request budget across both lookback passes', () => {
+  const years = (count) => Array.from({ length: count }, (_v, index) => cost(`c${index}`, '1', 'USD', 15, 6, 2001 + index));
+  const emptyAnswer = ({ from, to, quotes }) => clientResult({ observations: [], quotes, from, to });
+  const run = async (costs, handler) => {
+    const { cache } = cacheOn();
+    const client = fakeClient(handler);
+    const prepared = await prepareHistoricalRates({ ...base, costs, targetCurrency: 'EUR', cache, client });
+    const result = convertCosts(costs, createHistoricalConverter({ index: prepared.index, targetCurrency: 'EUR', referenceDate: base.referenceDate }));
+
+    return { client, prepared, result };
+  };
+  const expectNothingSubstituted = (result, count) => {
+    expect(result.complete).toBe(false);
+    expect(result.total).toBeNull();
+    expect(result.items).toHaveLength(count);
+    result.items.forEach((item) => {
+      expect(item.status).toBe('unavailable');
+      expect(item.amount).toBeNull();
+    });
+  };
+
+  it('failing requests that use the whole first-pass budget get NO second-pass request', async () => {
+    const costs = years(20);
+    const { client, prepared, result } = await run(costs, () => { throw new FxError(fxErrorCodes.emptyResponse, 'none'); });
+
+    expect(client.fetchRange).toHaveBeenCalledTimes(8);
+    expect(prepared.requests).toHaveLength(8);
+    // Every call was a first-pass (7-day) window: none was widened.
+    client.fetchRange.mock.calls.forEach(([{ from, to }]) => {
+      expect((Date.parse(to) - Date.parse(from)) / 86_400_000).toBeLessThanOrEqual(7);
+    });
+    expectNothingSubstituted(result, 20);
+  });
+
+  it('empty (valid but data-less) answers that use the whole budget are not retried either', async () => {
+    const costs = years(20);
+    const { client, result } = await run(costs, emptyAnswer);
+
+    expect(client.fetchRange).toHaveBeenCalledTimes(8);
+    expectNothingSubstituted(result, 20);
+  });
+
+  it('a partly used first pass leaves only the remainder for the wider pass: the total is exactly 8', async () => {
+    const costs = years(5);
+    const { client, prepared, result } = await run(costs, () => { throw new FxError(fxErrorCodes.emptyResponse, 'none'); });
+
+    // 5 first-pass requests, then only 3 of the 5 wider ones.
+    expect(client.fetchRange).toHaveBeenCalledTimes(8);
+    expect(prepared.requests).toHaveLength(8);
+    expectNothingSubstituted(result, 5);
+  });
+
+  it('never exceeds 8 in total however many expenses or passes', async () => {
+    for (const count of [1, 3, 8, 9, 40]) {
+      const { client } = await run(years(count), () => { throw new FxError(fxErrorCodes.emptyResponse, 'none'); });
+
+      expect(client.fetchRange.mock.calls.length).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it('a transient failure (timeout) stops the run: no wider pass, so fewer than the budget', async () => {
+    const { client } = await run(years(3), () => { throw new FxError(fxErrorCodes.timeout, 'slow'); });
+
+    expect(client.fetchRange).toHaveBeenCalledTimes(3);
+  });
+
+  it('the wider pass really is wider, and a found observation is used, not a zero or demo rate', async () => {
+    const costs = [cost('a', '120', 'USD', 20)];
+    const { client, result } = await run(costs, ({ from, to, quotes }) => {
+      const found = from <= '2026-08-01' && to >= '2026-08-01';
+
+      if (!found) {
+        throw new FxError(fxErrorCodes.emptyResponse, 'none');
+      }
+
+      return clientResult({ observations: [{ date: '2026-08-01', quote: 'USD', rate: '1.2' }], quotes, from, to });
+    });
+
+    expect(client.fetchRange).toHaveBeenCalledTimes(2);
+    expect(result.total).toBe('100');
+    expect(result.items[0].observationDate).toBe('2026-08-01');
+  });
+});
