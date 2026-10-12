@@ -1896,6 +1896,30 @@ replaces the rate pipeline anyway.
 - **Error contract:** `{ code, params }` per field; English wording is in
   `utils/costInputMessages.js` so Hebrew (M3) can replace it.
 
+## Where the rules apply: create, update, preserve, import
+
+| Case | Rule |
+|---|---|
+| **A. Create** (`addCost`, Add Cost form) | Every rule. `db.addCost()` enforces the same policy as the form (`validateNewCost`), so a programmatic caller cannot create an expense the form rejects. It ignores any supplied date and stamps the current one. |
+| **B. Update** (`updateCost`, Manage Costs form) | The database compares the payload with the stored record and validates **only fields whose value changed** (`validateChangedCostFields`): amount by `Object.is`, text by equality, and the date's day/month/year separately from hour/minute. |
+| **C. Preserve** | An unchanged field keeps its exact stored value (zero, negative, long-decimal, tiny, huge, old date, long text), including when only the currency changes. |
+| **D. Restore / import / migration** | Never call the input rules. They use stored-data validation and the migration chain, so any valid historical dataset or version 1 backup stays restorable and editable. Delete does not validate either. |
+
+Errors from the database are `CostInputError` (a `TypeError`) with stable
+`field`, `code` and `params`; existing structural errors and messages
+(non-number sum, unknown currency, impossible date) are unchanged. No public
+signature, storage format, or schema changed.
+
+**Limit of Number input.** The database receives a JavaScript `Number`, not the
+text a user typed, so it judges a Number by its shortest round-trip decimal
+form. It therefore cannot see typed trailing or leading zeros (`1.990` arrives
+as `1.99` and is accepted; the form rejects the text), while `0.1 + 0.2`,
+`1e-7`, `1e21`, and `-0` are judged by their decimal expansion and rejected.
+Everything a Number can carry is enforced; exact-text guarantees belong to the
+forms. For every Number the database and the form decide identically on the
+decimal form (tested). Strict text-level guarantees in the database would need
+a new text-based API, which was not introduced.
+
 ## Legacy data and editing
 
 An edit validates only what the user changed. A field whose text is unchanged
@@ -1911,8 +1935,9 @@ stored.
   an unsupported newer version and pauses saving, and cannot read a version 2
   backup; its "Restore previous data" can restore the pre-upgrade copy
   (verified against the previous code). There is no silent downgrade.
-- `db.addCost()` stays permissive for programmatic callers (the strict rules
-  are enforced by the forms through the central validator).
+- The input policy is enforced at the database boundary as well as in the
+  forms (see "Where the rules apply"); Number input has the documented limit
+  above.
 - `vanilla/` still uses `EURO`; it is frozen and unaffected.
 - A legacy negative amount still shows as a negative chart slice (existing
   behavior for old data, not changed here).

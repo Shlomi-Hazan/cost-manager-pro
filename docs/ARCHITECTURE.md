@@ -175,6 +175,10 @@ format.js     the only place money becomes text (Intl.NumberFormat, one rounding
   `costDocument.js` (stored-data integrity, which accepts history), and
   `lib/dataQuality.js` (non-blocking remarks about old values). Wording for
   codes is in `utils/costInputMessages.js`. See ADR-048.
+- `db.addCost()` applies the full input policy; `db.updateCost()` compares the
+  payload with the stored record and validates only changed fields, so legacy
+  values stay editable and are never rewritten. Restore, import and migration
+  bypass these checks by design (they validate stored data instead).
 
 ## 6. Navigation and state
 
