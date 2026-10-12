@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fxCacheKey } from '../lib/fx/constants.js';
-import { fxChangedEvent, getFxOverview } from '../services/fxRatesService.js';
+import { fxCacheKey, fxChangedEvent, getFxOverview } from '../services/fxRatesService.js';
 
 /*
  * M2B.3: true when accepted rates changed AFTER a report was generated (a rate

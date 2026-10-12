@@ -15,12 +15,12 @@ import {
 } from '@mui/material';
 import LoadingButtonLabel from '../common/LoadingButtonLabel.jsx';
 import SectionCard from '../common/SectionCard.jsx';
-import { fxCacheKey } from '../../lib/fx/constants.js';
 import { describeOperationResult, formatCheckedAt } from '../../services/conversionDisclosure.js';
 import {
   applyRevision,
   checkForNewRates,
   checkSavedRatesForRevisions,
+  fxCacheKey,
   getFxOverview,
   keepRevision
 } from '../../services/fxRatesService.js';

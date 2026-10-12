@@ -2204,7 +2204,7 @@ milestone:
 
 # ADR-050 — Dated ECB Conversion in Reports, Charts and Exports (M2B.2)
 
-**Status:** ACCEPTED (implemented in M2B.2; **in review, not merged**)  
+**Status:** ACCEPTED (implemented in M2B.2; merged as PR #7 and passed the product owner's 13 Production acceptance checks)  
 **Date:** 2026-10-12
 
 ## Decision
@@ -2271,6 +2271,76 @@ reporting path.
   date arrives.
 - Storage, backup (v2) and expense schema (v2) are unchanged. The ECB cache is a
   separate key that never enters a backup.
+
+---
+
+# ADR-051 — FX Reliability, Offline Behaviour, Refresh and Rate Revisions (M2B.3)
+
+**Status:** PROPOSED (implemented in a draft PR; **not accepted, not merged**)  
+**Date:** 2026-10-13
+
+## Decision
+
+The calculation engine of ADR-049/050 is unchanged. M2B.3 adds understanding and
+control around it, with no change to expense storage, the backup format, or
+Policy B.
+
+1. **One small status model** (`src/lib/reporting/fxAvailability.js`), derived
+   per report from what the preparation actually did, never stored:
+   - state: `not-needed` (no rate involved), `cache` (all rates already saved),
+     `fetched` (a request succeeded during this report), `unavailable`;
+   - flags: `provisional`, `persistenceFailed`, `cacheProblem`,
+     `pendingRevisions` (only those touching rates THIS report used),
+     `browserOffline`;
+   - causes, kept apart: a request that **failed** (network, timeout, rate
+     limit, provider error, invalid response: retryable), dates the provider
+     **cannot serve** (before ECB history, no history for the currency, no common
+     observation date, an empty answer: not retryable), a **future date** (no
+     rate yet: not retryable), and rates **never fetched** (retryable).
+     `navigator.onLine` only changes the wording of a network failure to
+     "your browser reports being offline"; it never decides anything. "Try
+     again" is offered only when a retry can help.
+2. **Freshness is source-aware, never age-based.** An old observation is valid
+   for an old expense. An observation is `final` when it is dated the expense
+   day, or a later observation shared by the needed currencies is saved, or the
+   provider's own metadata (its newest observation date, saved by "Check for new
+   rates") is later than the expense date. Otherwise it is honestly
+   `provisional`; nothing assumes a holiday calendar. Observation date, fetch
+   time and expense date stay distinct; "last checked" is the newest successful
+   data fetch, shown in labelled UTC.
+3. **Explicit, separate actions** (`src/services/fxRatesService.js`, Settings
+   panel): "Check for new rates" (newest data + provider metadata), "Check saved
+   rates for changes" (re-asks the newest 90 days of saved dates; at most 4
+   requests of up to a year), and the user's decision on each proposal. Applying a
+   saved change and regenerating a report are separate steps. One operation runs
+   at a time; Cancel is supported; nothing runs at startup, on a timer, or in the
+   background.
+4. **Revisions are user-approved, one at a time.** A value the provider now
+   reports differently is a pending revision (M2B.1). The review table shows
+   currency, date, current and proposed rate and when it was proposed. "Use new
+   rate" passes the values the user saw; if the proposal changed meanwhile
+   (another tab, a newer check) nothing is applied (`conflict`). The replaced value
+   stays in the revision log. M2B.1 was extended minimally for this
+   (`evaluateRevisionTarget`, identity-checked `applyPendingRevision`).
+5. **Report snapshots.** A report is the accepted rates at generation; nothing
+   recomputes it. If rates are accepted afterwards (here or in another tab) the
+   report shows "rates were updated after this was generated" and a "Generate
+   again" button; the figures and exports stay as displayed. A report that used
+   no rate never claims this. No snapshot is persisted.
+6. **Transparency.** The ECB note now also states when rates were last checked,
+   whether they were already saved or loaded for this report, and provisional
+   status; proposed changes and unsaved rates get short notes. The same
+   objects feed the screen and the Excel/PDF files.
+7. **Cache hygiene.** Repeated checks of a range no longer grow the coverage list
+   (an older counted range fully contained in a newer one of the same status is
+   dropped). Cross-tab behaviour remains best effort (localStorage has no
+   transactions); `storage` events refresh what is shown and never apply anything.
+
+## Not done (deliberate)
+
+No persisted report snapshots; no automatic or background checks; no holiday
+calendar; no IndexedDB or sync server; no bulk "accept all"; no localization of the
+new wording (M3).
 
 ---
 

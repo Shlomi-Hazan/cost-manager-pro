@@ -9,9 +9,12 @@
  * here touches expenses or reports on screen. A rate the provider now reports
  * differently is only ever a pending revision until the user accepts it.
  */
-import { addDays, fxQuoteCurrencies, getLastCheckedAt, isFxError } from '../lib/fx/index.js';
+import { addDays, fxCacheKey, fxQuoteCurrencies, getLastCheckedAt, isFxError } from '../lib/fx/index.js';
 import { describeFailure } from '../lib/reporting/fxAvailability.js';
 import { getSharedEcbClient, getSharedFxCache } from './historicalRatesService.js';
+
+/** The storage key of the saved rates, for `storage` events from other tabs. */
+export { fxCacheKey };
 
 export const recentCheckDays = 90;
 export const maxCheckRequests = 4;
