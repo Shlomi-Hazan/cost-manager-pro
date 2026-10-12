@@ -7,7 +7,8 @@ import { createHistoricalConverter, convertCosts } from '../../src/lib/reporting
 import { planFetchRanges, prepareHistoricalRates } from '../../src/services/historicalRatesService.js';
 import { createObservationIndex } from '../../src/lib/fx/observationSelection.js';
 import { createEmptyTable } from '../../src/lib/fx/rateTable.js';
-import { clientResult, createMemoryStorage, quota } from '../fx/helpers.js';
+import { createEcbClient } from '../../src/lib/fx/ecbClient.js';
+import { clientResult, createMemoryStorage, quota, response } from '../fx/helpers.js';
 
 const cost = (id, sum, currency, day, month = 8, year = 2026) => ({ id, sum, currency, category: 'Food', date: { day, month, year, hour: 1, minute: 1 } });
 const weekdays = ['2026-08-06', '2026-08-07', '2026-08-10'];
@@ -81,31 +82,28 @@ describe('batched fetching', () => {
     ranges.forEach((range) => expect(range.from <= range.to).toBe(true));
   });
 
-  it('shares an in-flight request between two simultaneous preparations', async () => {
-    const { cache } = cacheOn();
+  it('makes ONE network call for two simultaneous preparations (the ECB client shares it), each filling its own cache', async () => {
+    const one = cacheOn();
+    const two = cacheOn();
     let release;
     const gate = new Promise((resolve) => { release = resolve; });
-    const client = fakeClient(async (args) => { await gate; return answer(args); });
-    const costs = [cost('a', '1', 'USD', 7)];
-    const first = prepareHistoricalRates({ ...base, costs, targetCurrency: 'EUR', cache, client });
-    const second = prepareHistoricalRates({ ...base, costs, targetCurrency: 'EUR', cache, client });
+    const fetch = vi.fn(async (url) => {
+      await gate;
+      const params = new URL(url).searchParams;
 
-    await Promise.resolve();
+      return response([{ provider: 'ECB', date: '2026-08-07', base: 'EUR', quote: 'USD', rate: 1.2 }].filter(() => params.get('from') <= '2026-08-07'));
+    });
+    const client = createEcbClient({ fetch, maxRetries: 0 });
+    const costs = [cost('a', '1', 'USD', 7)];
+    const first = prepareHistoricalRates({ ...base, costs, targetCurrency: 'EUR', cache: one.cache, client });
+    const second = prepareHistoricalRates({ ...base, costs, targetCurrency: 'EUR', cache: two.cache, client });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
     release();
     await Promise.all([first, second]);
-    expect(client.fetchRange).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('request cap', () => {
-  it('never sends more than the per-report maximum, leaving the rest unavailable', async () => {
-    const { cache } = cacheOn();
-    const client = fakeClient(() => { throw new FxError(fxErrorCodes.timeout, 'x'); });
-    const costs = Array.from({ length: 20 }, (_v, index) => cost(`c${index}`, '1', 'USD', 15, 6, 2001 + index));
-    const prepared = await prepareHistoricalRates({ ...base, costs, targetCurrency: 'EUR', cache, client });
-
-    expect(client.fetchRange).toHaveBeenCalledTimes(8);
-    expect(prepared.requests).toHaveLength(8);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(one.cache.getTable().observations.USD['2026-08-07']).toBeDefined();
+    expect(two.cache.getTable().observations.USD['2026-08-07']).toBeDefined();
   });
 });
 

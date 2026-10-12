@@ -77,6 +77,17 @@ export async function generateYearlyReport({ database, currency, year, now, sign
   const { converter } = await convertedView({ costs, currency, now, signal, services });
   const yearly = buildYearlyConversion(costs, converter, year);
 
+  const summary = { ...yearly, unavailableReasons: [...new Set(yearly.unavailable.map((item) => item.reason))].sort() };
+  const disclosure = getEcbDisclosure(summary);
+  const yearlyNotes = {
+    // Same contract as the monthly report: no ECB claim beside an unavailable total.
+    rateDisclosure: yearly.complete ? disclosure : null,
+    // The bar chart still shows the months that DID convert, so it needs the
+    // provenance of those figures even when the year is incomplete.
+    partialRateDisclosure: disclosure,
+    incompleteNotice: getIncompleteNotice(summary)
+  };
+
   return {
     year,
     costs,
@@ -87,6 +98,6 @@ export async function generateYearlyReport({ database, currency, year, now, sign
     months: yearly.months,
     yearly,
     conversion: { ...yearly, total: yearly.totalAmount, complete: yearly.complete },
-    ...describe({ ...yearly, counts: { ...yearly.counts }, unavailableReasons: [...new Set(yearly.unavailable.map((item) => item.reason))].sort() })
+    ...yearlyNotes
   };
 }

@@ -25,6 +25,10 @@ import { toIsoDate } from '../lib/reporting/historicalConversion.js';
 // The ECB publishes on business days; the longest gap seen is 5 days, so a
 // week before the expense date always contains the observation that applies.
 export const lookbackDays = 7;
+// One bounded second attempt for a gap longer than a week (for example after a
+// currency's data was interrupted). If nothing is found within it, the expense
+// stays unavailable; nothing is ever assumed.
+export const extendedLookbackDays = 45;
 // Dates closer together than this are fetched in one request.
 export const mergeGapDays = 31;
 export const maxRangeDays = 366;
@@ -32,7 +36,6 @@ export const maxRequestsPerPreparation = 8;
 
 let defaultCache = null;
 let defaultClient = null;
-const inFlight = new Map();
 
 function getDefaultCache() {
   defaultCache ??= createFxCache();
@@ -94,7 +97,7 @@ function neededLookups(costs, targetCurrency) {
  * @param {string|null} referenceDate
  * @returns {{from: string, to: string, quotes: string[]}[]}
  */
-export function planFetchRanges(lookups, index, targetCurrency, referenceDate) {
+export function planFetchRanges(lookups, index, targetCurrency, referenceDate, lookback = lookbackDays) {
   const windows = [];
 
   lookups.forEach(({ expenseDate, currency }) => {
@@ -102,7 +105,7 @@ export function planFetchRanges(lookups, index, targetCurrency, referenceDate) {
 
     if (selection.status === selectionStatus.needsFetch) {
       windows.push({
-        from: maxIso(addDays(expenseDate, -lookbackDays), ecbFirstObservationDate),
+        from: maxIso(addDays(expenseDate, -lookback), ecbFirstObservationDate),
         to: expenseDate,
         quotes: selection.quotes
       });
@@ -127,37 +130,31 @@ export function planFetchRanges(lookups, index, targetCurrency, referenceDate) {
   return merged.map((range) => ({ ...range, quotes: range.quotes.sort() }));
 }
 
+// Identical simultaneous requests are already shared by the ECB client (one
+// network call). Each caller still records the answer in ITS OWN cache and
+// reports ITS OWN persistence result, so nothing is shared at this level.
 async function fetchRange({ range, cache, client, signal, now }) {
-  const key = `${range.from}|${range.to}|${range.quotes.join(',')}`;
+  try {
+    const result = await client.fetchRange({ from: range.from, to: range.to, quotes: range.quotes, signal });
+    const stored = cache.recordObservations(result);
 
-  // Two reports asking for the same range at once share one request.
-  if (inFlight.has(key)) {
-    return inFlight.get(key);
-  }
-
-  const run = (async () => {
-    try {
-      const result = await client.fetchRange({ from: range.from, to: range.to, quotes: range.quotes, signal });
-      const stored = cache.recordObservations(result);
-
-      return { ...range, ok: true, persisted: stored.persisted, persistReason: stored.reason };
-    } catch (error) {
-      if (!isFxError(error)) {
-        throw error;
-      }
-
-      if (error.code !== 'aborted') {
-        cache.recordFailure({ kind: 'range', quotes: range.quotes, from: range.from, to: range.to }, error, new Date(now()).toISOString());
-      }
-
-      return { ...range, ok: false, code: error.code, persisted: true, persistReason: null };
+    return { ...range, ok: true, persisted: stored.persisted, persistReason: stored.reason };
+  } catch (error) {
+    if (!isFxError(error)) {
+      throw error;
     }
-  })().finally(() => inFlight.delete(key));
 
-  inFlight.set(key, run);
+    if (error.code !== 'aborted') {
+      cache.recordFailure({ kind: 'range', quotes: range.quotes, from: range.from, to: range.to }, error, new Date(now()).toISOString());
+    }
 
-  return run;
+    return { ...range, ok: false, code: error.code, persisted: true, persistReason: null };
+  }
 }
+
+// Failures that say "the provider has nothing in this window", as opposed to
+// "the request did not work" (which a wider window cannot fix).
+const emptyWindowCodes = new Set(['empty-response', 'missing-required-currency']);
 
 /**
  * Prepares the rates a set of expenses needs and returns one index snapshot.
@@ -180,19 +177,33 @@ export async function prepareHistoricalRates({ costs, targetCurrency, referenceD
     return { index: null, needed: false, requests: [], cacheStatus: 'not-read', persistence: 'none' };
   }
 
-  const initial = cache.inspect();
-  const ranges = planFetchRanges(lookups, createObservationIndex(initial.table), targetCurrency, referenceDate).slice(0, maxRequestsPerPreparation);
   const requests = [];
+  const ecb = client ?? getDefaultClient();
 
-  if (ranges.length > 0) {
-    const ecb = client ?? getDefaultClient();
+  for (const lookback of [lookbackDays, extendedLookbackDays]) {
+    const table = cache.inspect().table;
+    const remaining = maxRequestsPerPreparation - requests.length;
+    const ranges = planFetchRanges(lookups, createObservationIndex(table), targetCurrency, referenceDate, lookback).slice(0, Math.max(0, remaining));
+
+    if (ranges.length === 0 || signal?.aborted) {
+      break;
+    }
+
+    const round = [];
 
     for (const range of ranges) {
       if (signal?.aborted) {
         break;
       }
 
-      requests.push(await fetchRange({ range, cache, client: ecb, signal, now }));
+      round.push(await fetchRange({ range, cache, client: ecb, signal, now }));
+    }
+
+    requests.push(...round);
+
+    // Only a window that came back empty is worth widening once.
+    if (round.some((request) => !request.ok && !emptyWindowCodes.has(request.code))) {
+      break;
     }
   }
 

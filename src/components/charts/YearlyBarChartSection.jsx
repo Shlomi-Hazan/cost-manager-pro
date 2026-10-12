@@ -171,7 +171,7 @@ function YearlyBarChartSection() {
         currency: filters.currency,
         incompleteNotice: yearly.incompleteNotice,
         monthlyTotals: yearly.months,
-        rateDisclosure: yearly.rateDisclosure,
+        rateDisclosure: yearly.partialRateDisclosure,
         totalAmount: yearly.totalAmount,
         year: validation.chartYear
       });
