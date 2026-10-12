@@ -73,7 +73,7 @@ describe('batched fetching', () => {
     expect(convertCosts(costs, createHistoricalConverter({ index: prepared.index, targetCurrency: 'EUR', referenceDate: base.referenceDate })).complete).toBe(true);
   });
 
-  it('plans distant dates as separate bounded ranges and caps the request count', () => {
+  it('plans distant dates as separate bounded ranges', () => {
     const lookups = Array.from({ length: 20 }, (_v, index) => ({ expenseDate: `${2000 + index}-06-15`, currency: 'USD' }));
     const ranges = planFetchRanges(lookups, createObservationIndex(createEmptyTable()), 'EUR', '2026-10-12');
 
@@ -94,6 +94,18 @@ describe('batched fetching', () => {
     release();
     await Promise.all([first, second]);
     expect(client.fetchRange).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('request cap', () => {
+  it('never sends more than the per-report maximum, leaving the rest unavailable', async () => {
+    const { cache } = cacheOn();
+    const client = fakeClient(() => { throw new FxError(fxErrorCodes.timeout, 'x'); });
+    const costs = Array.from({ length: 20 }, (_v, index) => cost(`c${index}`, '1', 'USD', 15, 6, 2001 + index));
+    const prepared = await prepareHistoricalRates({ ...base, costs, targetCurrency: 'EUR', cache, client });
+
+    expect(client.fetchRange).toHaveBeenCalledTimes(8);
+    expect(prepared.requests).toHaveLength(8);
   });
 });
 
