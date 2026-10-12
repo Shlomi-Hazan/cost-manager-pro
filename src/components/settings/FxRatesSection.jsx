@@ -36,6 +36,43 @@ import {
  */
 const maxRowsShown = 50;
 
+// Below the md breakpoint each proposal becomes a stacked card (label: value)
+// so it fits 360 px without sideways scrolling. The column headers stay in the
+// accessibility tree (visually hidden) and each cell carries its label.
+const stackedRowsSx = {
+  '& thead': {
+    display: { xs: 'block', md: 'table-header-group' },
+    '& tr': { display: { xs: 'block', md: 'table-row' } },
+    '& th': {
+      border: { xs: 0, md: undefined },
+      clip: { xs: 'rect(0 0 0 0)', md: 'auto' },
+      height: { xs: '1px', md: 'auto' },
+      overflow: { xs: 'hidden', md: 'visible' },
+      p: { xs: 0, md: undefined },
+      position: { xs: 'absolute', md: 'static' },
+      width: { xs: '1px', md: 'auto' }
+    }
+  },
+  '& tbody tr': {
+    borderBottom: { xs: '1px solid', md: 0 },
+    borderColor: 'divider',
+    display: { xs: 'block', md: 'table-row' },
+    py: { xs: 1, md: 0 }
+  },
+  '& tbody td': {
+    alignItems: 'center',
+    border: { xs: 0, md: undefined },
+    display: { xs: 'flex', md: 'table-cell' },
+    gap: 2,
+    justifyContent: 'space-between',
+    '&::before': {
+      content: 'attr(data-label)',
+      display: { xs: 'block', md: 'none' },
+      fontWeight: 700
+    }
+  }
+};
+
 function rateText(quote, rate) {
   return `1 EUR = ${rate} ${quote}`;
 }
@@ -186,7 +223,7 @@ function FxRatesSection() {
                 <AlertTitle>Nothing has been replaced</AlertTitle>
                 Reports keep using the current rate until you choose &quot;Use new rate&quot;. A rate you accept changes only reports you generate afterwards; expenses are never modified. Reports that are already open keep their figures.
               </Alert>
-              <TableContainer>
+              <TableContainer sx={stackedRowsSx}>
                 <Table aria-label="Proposed rate changes" size="small">
                   <TableHead>
                     <TableRow>
@@ -201,12 +238,12 @@ function FxRatesSection() {
                   <TableBody>
                     {shown.map((revision) => (
                       <TableRow key={`${revision.quote}|${revision.date}|${revision.candidate}`}>
-                        <TableCell>{revision.quote}</TableCell>
-                        <TableCell>{revision.date}</TableCell>
-                        <TableCell>{rateText(revision.quote, revision.accepted)}</TableCell>
-                        <TableCell>{rateText(revision.quote, revision.candidate)}</TableCell>
-                        <TableCell>{revision.candidateFetchedAt ? formatCheckedAt(revision.candidateFetchedAt) : 'Unknown'}</TableCell>
-                        <TableCell>
+                        <TableCell data-label="Currency">{revision.quote}</TableCell>
+                        <TableCell data-label="Date">{revision.date}</TableCell>
+                        <TableCell data-label="Current rate">{rateText(revision.quote, revision.accepted)}</TableCell>
+                        <TableCell data-label="Proposed rate">{rateText(revision.quote, revision.candidate)}</TableCell>
+                        <TableCell data-label="Proposed on">{revision.candidateFetchedAt ? formatCheckedAt(revision.candidateFetchedAt) : 'Unknown'}</TableCell>
+                        <TableCell data-label="Decision">
                           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                             <Button aria-label={`Use new rate for ${revision.quote} on ${revision.date}`} disabled={isBusy} onClick={() => decide('apply', revision)} size="small" variant="contained">
                               Use new rate
