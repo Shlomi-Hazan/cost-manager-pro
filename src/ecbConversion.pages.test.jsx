@@ -241,6 +241,7 @@ describe('ECB provenance on converted outputs', () => {
 
       expect(within(section).getByText('Total: Unavailable')).toBeInTheDocument();
       expect(within(section).getByText(/could not be converted/)).toBeInTheDocument();
+      expect(ecbNote()).not.toBeInTheDocument();
     });
   });
 

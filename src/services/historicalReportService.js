@@ -62,7 +62,9 @@ export async function generateMonthlyReport({ database, currency, year, month, n
     status: conversion.status,
     conversion,
     breakdown: buildCategoryBreakdown(conversion),
-    ...describe(conversion)
+    ...describe(conversion),
+    // No converted figure is shown for an incomplete month, so no ECB claim.
+    rateDisclosure: conversion.complete ? getEcbDisclosure(conversion) : null
   };
 }
 

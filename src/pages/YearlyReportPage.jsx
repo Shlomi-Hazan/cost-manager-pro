@@ -177,7 +177,7 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
     return buildYearlyReportExportModel({
       costs: sortedCosts,
       incompleteNotice: report.incompleteNotice,
-      rateDisclosure: report.rateDisclosure,
+      rateDisclosure: report.complete ? report.rateDisclosure : null,
       report,
       totalAmount: report.totalAmount
     });
@@ -339,7 +339,7 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
             {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
             <ConversionNotices
               incompleteNotice={report.incompleteNotice}
-              rateDisclosure={report.rateDisclosure}
+              rateDisclosure={report.complete ? report.rateDisclosure : null}
             />
 
             {exportErrorMessage ? (

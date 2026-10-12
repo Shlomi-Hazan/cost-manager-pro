@@ -10,8 +10,8 @@ export const conversionKinds = { ecb: 'ecb' };
 
 function dateText(observation) {
   return observation.firstDate === observation.lastDate
-    ? `observation date ${observation.firstDate}`
-    : `observation dates ${observation.firstDate} to ${observation.lastDate}`;
+    ? `the observation dated ${observation.firstDate}`
+    : `observations dated ${observation.firstDate} to ${observation.lastDate}`;
 }
 
 /**
@@ -29,7 +29,7 @@ export function getEcbDisclosure(conversion) {
   const { observation } = conversion;
   const base =
     'Converted amounts use European Central Bank (ECB) euro reference rates, delivered through the Frankfurter API, ' +
-    `on the ECB ${dateText(observation)} that applies to each expense (the latest observation on or before the expense date). ` +
+    `using ${dateText(observation)}: for each expense, the latest ECB observation on or before its date. ` +
     'Reference rates are informational and are not necessarily the rate you were charged. ' +
     'Cross rates are calculated by Cost Manager Pro from the ECB euro-based rates.';
   const provisional = observation.provisional
