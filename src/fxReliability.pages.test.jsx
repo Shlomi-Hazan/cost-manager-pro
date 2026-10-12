@@ -47,10 +47,18 @@ function seedWithPendingRevision() {
 
 async function generateMonthly(user, { currency = 'EUR', month = 'October' } = {}) {
   render_(<MonthlyReportPage />);
-  await user.click(screen.getByRole('combobox', { name: 'Month' }));
-  await user.click(screen.getByRole('option', { name: month }));
-  await user.click(screen.getByRole('combobox', { name: 'Currency' }));
-  await user.click(screen.getByRole('option', { name: currency }));
+  // The month defaults to the (faked) current month, October; only change the
+  // select when another is asked for, because each select costs real time on
+  // a small CI machine. The currency defaults to USD.
+  if (month !== 'October') {
+    await user.click(screen.getByRole('combobox', { name: 'Month' }));
+    await user.click(screen.getByRole('option', { name: month }));
+  }
+
+  if (currency !== 'USD') {
+    await user.click(screen.getByRole('combobox', { name: 'Currency' }));
+    await user.click(screen.getByRole('option', { name: currency }));
+  }
   await user.click(screen.getByRole('button', { name: 'Generate Report' }));
 }
 
