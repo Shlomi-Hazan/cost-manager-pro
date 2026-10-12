@@ -1946,6 +1946,159 @@ stored.
 
 ---
 
+# ADR-049 — ECB Historical Exchange-Rate Infrastructure (M2B.1, dormant)
+
+**Status:** ACCEPTED (infrastructure implemented in M2B.1; **not active** in the app)  
+**Date:** 2026-10-12
+
+## Decision
+
+Approved by the product owner after the M2B pre-implementation review:
+
+1. **Source:** Frankfurter v2, the **ECB-specific** endpoint family
+   `https://api.frankfurter.dev/v2/providers/ecb/...`. The blended default feed
+   (`/v2/rates`) is never used; the client refuses any response that did not
+   come from the provider path.
+2. **EUR-base observations** (`1 EUR = rate QUOTE`) for `USD`, `GBP`, `ILS`.
+   `EUR` is 1 by definition and has no observations. Conversion is a ratio, so
+   the existing exact engine works unchanged with this base.
+3. **Historical conversion by the expense's local calendar date.** The latest
+   observation set dated on or before that date applies; both currencies of
+   one conversion come from the same observation date. Dates are the stored
+   `day/month/year` as `YYYY-MM-DD`; nothing goes through UTC.
+4. **Policy B is unchanged** (no per-expense rounding, exact decimals).
+5. **Versioned observation cache with explicit revision.** Accepted
+   observations are never silently changed.
+6. **`getReport()` stays synchronous.** Rates are prepared asynchronously first;
+   selection reads the local cache synchronously.
+7. **M2B.1 is infrastructure only and is DORMANT.** Nothing in the application
+   imports it; no request is made; no key is written; no converted amount, UI
+   text, or disclosure changes. The demonstration rates and their disclosures
+   remain in force until M2B.2 activates this and replaces them.
+
+## Provider facts (checked against the live API and official pages on 2026-10-12)
+
+- Response: a flat list `[{ "date", "base", "quote", "rate" }]`, rates as JSON
+  numbers. Provider metadata (`/v2/providers/ecb`) gives `start_date` (1999-01-04),
+  `end_date` (newest observation), `pivot_currency` (EUR), `publish_cadence`.
+- A date request answers with the **latest observation on or before** it: a
+  Saturday returns Friday, 25 December returns 24 December. A range starting on
+  a holiday also returned the preceding observation (the client accepts at most
+  10 days before `from`).
+- **HTTP 200 does not prove data:** future dates and dates before the series
+  return `[]`. ILS was absent on the first ECB date (1999-01-04) and present
+  from at least 2000-06-01 (the exact first ILS date was not determined).
+- `base=USD` makes the server compute **rounded** cross rates (`0.89238` versus
+  the exact `0.892379…`); the client therefore only requests the EUR base and
+  crosses locally.
+- CORS is open (`access-control-allow-origin: *`); responses are cacheable
+  (`max-age` 14-24 h, `stale-if-error` 24 h). A year of three currencies is
+  about 48 KB (about 4.5 KB compressed).
+- ECB: published about 16:00 CET on working days, "for information purposes
+  only", transaction use "strongly discouraged"; reuse requires citing the ECB
+  as the source and saying when data was modified. **Not verified:** numeric
+  rate limits, the behaviour of HTTP 429/503 and `Retry-After` (not provoked),
+  and whether the provider ever revises published history.
+
+## What was built (`src/lib/fx/`)
+
+| Module | Role |
+|---|---|
+| `ecbParser.js` | Validates responses; typed errors; exact decimal-string rates |
+| `ecbClient.js` | Bounded fetch client (10 s timeout, 2 retries, backoff, `Retry-After`, cancellation, shared in-flight requests) |
+| `rateTable.js` | The versioned table: schema, validation, checksum, union merge, revisions, size bound |
+| `observationSelection.js` | Pure selection by date with proof against coverage |
+| `fxCache.js` | Storage-bound cache: one key, failure injection, in-memory fallback, reconcile |
+
+## Precision rules
+
+Rates are exact decimal **strings**. Primary mode: `JSON.parse`'s reviver
+receives each number's source text (`context.source`), so every token is kept
+exactly, with no dependency and no regular expression over the serialized JSON.
+Fallback (engines without `context.source`): the parsed Number is accepted only
+if it has at most 15 significant digits and no exponent. **Limit of the
+fallback:** a token with more digits than a double holds cannot be detected,
+because the digits are gone once the Number exists; the result reports which
+mode was used. Both modes reject more than 15 significant digits, exponents,
+zero and negative rates, and unsupported formats. All 768 rates in a real year
+have at most 5 significant digits and round-trip exactly. Browser support for
+`context.source` was **not verified** in this milestone.
+
+## Observation model and coverage
+
+An observation is `{ provider: ECB, base: EUR, quote, date (observation date),
+rate, fetch }`; the fetch record holds the fetch time and what was requested.
+The **expense date**, the **observation date**, and the **fetch time** are
+never mixed. A missing rate is absent: never stored or returned as 0 or 1.
+
+Coverage is recorded **per currency and per date range**:
+
+| Status | Meaning | Counts when proving a selection |
+|---|---|---|
+| (no entry) | never fetched | no |
+| `valid` | observations in the range were received | yes |
+| `confirmed-empty` | the provider answered validly with none for this currency | yes |
+| `partial` | the answer failed validation | no |
+| `failed` | the request failed | no |
+
+## Selection and finality
+
+A selection is `available` only when each needed currency has counted coverage
+over `[observation date, expense date]`; otherwise `needs-fetch` with the
+missing ranges, each marked `not-fetched`, `failed` or `partial`. It is
+`unavailable` for a future date (relative to a caller-supplied today), a date
+before the series, a currency with confirmed absence, or currencies that never
+share a day. **Final** means the observation is dated the expense date, or a
+later observation common to all needed currencies exists. Otherwise
+**provisional** (a newer observation may still be published): today before the
+publication, or a weekend or holiday at the end of the data. Finality is derived
+from fetched data, not from the clock.
+
+## Cache
+
+One key, `cost-manager-pro:fx:ecb:v1` (schema version 1), written with a single
+`setItem`. It is independent of the expense keys, the backup, and the live demo
+cache (`…:exchange-rates-cache`), and it is **not** part of backups. Every read
+validates everything including a checksum; a corrupt cache is never trusted, a
+newer schema is never overwritten, a write that cannot be read back is not
+trusted. A failed write (quota or blocked storage) keeps results in memory for
+the session and reports `persisted: false`. The cache is bounded (default 1 MB;
+the whole 1999-2026 history for three currencies is about 0.3 MB) by dropping
+the oldest dates and their coverage. Before writing, the table is validated as
+it will be read back; observations are validated on entry.
+
+**Concurrent tabs (honest limits).** localStorage has no transactions. A write
+re-reads the key just before writing and, if it changed, rebuilds from the fresh
+value (a union) up to three times. A short window remains in which another
+tab's write can be overwritten; `reconcile()` (meant for the `storage` event)
+merges what a tab last wrote back in. Observations are idempotent, so repeating
+the merge is safe.
+
+## Revisions
+
+A later fetch that disagrees with an accepted observation becomes a **pending
+revision**; the accepted value stays. `applyPendingRevision()` replaces it only
+on explicit request and keeps the replaced value in a revision log;
+`discardPendingRevision()` keeps the accepted value. Nothing recalculates
+automatically, and no UI exists yet (M2B.3).
+
+## Consequences
+
+- Reports are unchanged by this milestone. The demonstration rates, their
+  disclosures, `Settings`, custom sources, and `getReport()` are untouched.
+- Proven by tests: no application module imports `src/lib/fx`, importing it
+  makes no request and no storage call, the production bundle is byte-identical
+  to before (and contains no `frankfurter` string), and expense, demo-cache and
+  settings storage are byte-identical after FX activity, including a real quota
+  failure.
+- **Still to do:** M2B.2 (use it in conversion, make ECB the default, replace
+  the demonstration disclosure with ECB attribution and the reference-rate
+  disclaimer, treat custom sources as saved but unused, never show a partial
+  total as complete) and M2B.3 (offline and stale states, refresh, revision UI,
+  cleanup of the old demo cache). Not started.
+
+---
+
 ---
 
 # 2. Open Decisions
@@ -2027,7 +2180,7 @@ milestone:
 |---|---|---|
 | OD-006 | Hosting provider for the live demo and how its storage stays separate from the original app | **Resolved in M1:** Vercel (ADR-044) and the `cost-manager-pro:` namespace (ADR-042). Deployment still needs approval |
 | OD-007 | What happens to `vanilla/db.js` and its tests (keep frozen or archive) | M1 or M7 |
-| OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | **Direction approved** (ADR-046): Frankfurter with ECB rates. Stale-rate handling and the privacy window for historical requests remain open (M2B) |
+| OD-008 | Exchange-rate source (free, no secret key) and how stale rates are handled | **Direction approved** (ADR-046): Frankfurter with ECB rates. Provider client, parser, and historical cache built but **dormant** (ADR-049, M2B.1). Stale-rate handling and the privacy window for historical requests remain open (M2B) |
 | OD-009 | Migration from `EURO` to ISO `EUR`, and expanding the currency list | `EUR` migration **decided and done** (ADR-048, M2A.3). Expanding the list remains open |
 | OD-010 | Rounding policy and the rule for which calendar day an expense falls on | Rounding **decided** (ADR-047, M2A.2). The calendar-day rule remains open |
 | OD-011 | i18n library (or `Intl` with an in-house catalog) | M3 |

@@ -17,6 +17,7 @@ or no data. Users should download backups.
 | `cost-manager-pro:costsdb:v2:costs:previous:pending` | The next safety copy, while a replacement is in progress (§5) | Normally removed at the end of the operation |
 | `cost-manager-pro:settings` | `{ exchangeRatesUrl? }` | No financial data |
 | `cost-manager-pro:exchange-rates-cache` | Last validated rates | Can always be fetched again |
+| `cost-manager-pro:fx:ecb:v1` | ECB historical rate cache (M2B.1) | **Dormant: nothing writes it yet.** Public data, rebuildable, not in backups, independent of expenses (ADR-049) |
 
 Keys used by the original course app on the same origin are **never written
 by Cost Manager Pro**: `cost-manager:costsdb:v1:costs`,

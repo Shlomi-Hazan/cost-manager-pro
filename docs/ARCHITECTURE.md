@@ -180,6 +180,27 @@ format.js     the only place money becomes text (Intl.NumberFormat, one rounding
   values stay editable and are never rewritten. Restore, import and migration
   bypass these checks by design (they validate stored data instead).
 
+## 5c. ECB historical rates infrastructure (M2B.1, dormant)
+
+`src/lib/fx/` holds a provider client, a response parser, a versioned cache, and
+a pure observation selector for dated ECB reference rates (ADR-049). **Nothing in
+the running application imports it**: reports, charts, exports, Settings, and
+`getReport()` still use the demonstration rates of section 5, unchanged. M2B.2
+will wire it in.
+
+```text
+fetch (async)  ->  ecbClient  ->  ecbParser  ->  fxCache (one key)  ->  observationSelection (sync)
+                   timeouts,       exact decimal   coverage per         final / provisional /
+                   retries         strings         currency + range     needs-fetch / unavailable
+```
+
+- EUR-base observations (`1 EUR = rate QUOTE`); conversion stays
+  `amount x rate[target] / rate[source]`, one division, Policy B.
+- Selection is synchronous and only reads the local table, so `getReport()` can
+  stay synchronous once rates are prepared.
+- The cache key is separate from expenses, backups and the demo cache, so a
+  cache failure cannot touch an expense.
+
 ## 6. Navigation and state
 
 - `App.jsx` keeps `activePageId` in React state. There are no URLs, so a
