@@ -10,9 +10,10 @@
  * is not involved: it stays the synchronous, flat-rate legacy contract.
  */
 import { amountToNumber } from '../lib/money/decimal.js';
+import { buildFxStatus } from '../lib/reporting/fxAvailability.js';
 import { createHistoricalConverter, getLocalIsoDate } from '../lib/reporting/historicalConversion.js';
 import { buildCategoryBreakdown, buildMonthlyConversion, buildYearlyConversion } from '../lib/reporting/historicalReports.js';
-import { getEcbDisclosure, getIncompleteNotice } from './conversionDisclosure.js';
+import { getEcbDisclosure, getIncompleteNotice, getStatusNotes } from './conversionDisclosure.js';
 import { prepareHistoricalRates } from './historicalRatesService.js';
 
 // Full-detail copy for report tables (all date/time fields).
@@ -38,8 +39,20 @@ async function convertedView({ costs, currency, now, signal, services }) {
   };
 }
 
-function describe(conversion) {
-  return { rateDisclosure: getEcbDisclosure(conversion), incompleteNotice: getIncompleteNotice(conversion) };
+// Browser offline is only a hint that changes wording; it proves nothing.
+function browserIsOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+function describe(conversion, prepared, items, targetCurrency) {
+  const fxStatus = buildFxStatus({ prepared, items, summary: conversion, targetCurrency, browserOffline: browserIsOffline() });
+
+  return {
+    fxStatus,
+    rateDisclosure: getEcbDisclosure(conversion, fxStatus),
+    incompleteNotice: getIncompleteNotice(conversion, fxStatus),
+    statusNotes: getStatusNotes(fxStatus)
+  };
 }
 
 /**
@@ -49,8 +62,9 @@ function describe(conversion) {
  */
 export async function generateMonthlyReport({ database, currency, year, month, now, signal, services }) {
   const costs = database.getAllCosts().filter((cost) => cost.date.year === year && cost.date.month === month).map(copyCost);
-  const { converter } = await convertedView({ costs, currency, now, signal, services });
+  const { converter, prepared } = await convertedView({ costs, currency, now, signal, services });
   const conversion = buildMonthlyConversion(costs, converter);
+  const notes = describe(conversion, prepared, conversion.items, currency);
 
   return {
     year,
@@ -62,9 +76,9 @@ export async function generateMonthlyReport({ database, currency, year, month, n
     status: conversion.status,
     conversion,
     breakdown: buildCategoryBreakdown(conversion),
-    ...describe(conversion),
+    ...notes,
     // No converted figure is shown for an incomplete month, so no ECB claim.
-    rateDisclosure: conversion.complete ? getEcbDisclosure(conversion) : null
+    rateDisclosure: conversion.complete ? notes.rateDisclosure : null
   };
 }
 
@@ -74,18 +88,20 @@ export async function generateMonthlyReport({ database, currency, year, month, n
  */
 export async function generateYearlyReport({ database, currency, year, now, signal, services }) {
   const costs = database.getAllCosts().filter((cost) => cost.date.year === year).map(copyCost);
-  const { converter } = await convertedView({ costs, currency, now, signal, services });
+  const { converter, prepared } = await convertedView({ costs, currency, now, signal, services });
   const yearly = buildYearlyConversion(costs, converter, year);
 
   const summary = { ...yearly, unavailableReasons: [...new Set(yearly.unavailable.map((item) => item.reason))].sort() };
-  const disclosure = getEcbDisclosure(summary);
+  const notes = describe(summary, prepared, yearly.months.flatMap((month) => month.conversion.items), currency);
   const yearlyNotes = {
+    fxStatus: notes.fxStatus,
+    statusNotes: notes.statusNotes,
     // Same contract as the monthly report: no ECB claim beside an unavailable total.
-    rateDisclosure: yearly.complete ? disclosure : null,
+    rateDisclosure: yearly.complete ? notes.rateDisclosure : null,
     // The bar chart still shows the months that DID convert, so it needs the
     // provenance of those figures even when the year is incomplete.
-    partialRateDisclosure: disclosure,
-    incompleteNotice: getIncompleteNotice(summary)
+    partialRateDisclosure: notes.rateDisclosure,
+    incompleteNotice: notes.incompleteNotice
   };
 
   return {

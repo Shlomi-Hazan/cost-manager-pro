@@ -420,6 +420,24 @@ function compact(table) {
     table.coverage[quote] = table.coverage[quote].filter((range) => !dropped.has(range));
   });
 
+  // A repeated check of a range adds a new coverage entry. An older counted
+  // entry that a newer one of the same status fully contains says nothing the
+  // newer one does not, so it is dropped (keeps the list from growing with
+  // every refresh). The list is small in practice; the pass is skipped if not.
+  fxQuoteCurrencies.forEach((quote) => {
+    const list = table.coverage[quote];
+
+    if (list.length > 2000) {
+      return;
+    }
+
+    table.coverage[quote] = list.filter(
+      (range) =>
+        !isCountedCoverage(range.status) ||
+        !list.some((other) => other !== range && other.status === range.status && other.fetch > range.fetch && other.from <= range.from && other.to >= range.to)
+    );
+  });
+
   const referenced = new Set();
 
   fxQuoteCurrencies.forEach((quote) => {
@@ -629,17 +647,47 @@ export function recordProviderMetadata(table, metadata, checkedAt) {
   };
 }
 
+export const revisionOutcomes = { applied: 'applied', notFound: 'not-found', conflict: 'conflict' };
+
+/**
+ * Looks a pending revision up WITHOUT changing anything.
+ * @param {object} table
+ * @param {{quote: string, date: string, accepted?: string, candidate?: string}} target
+ *   When `accepted` and/or `candidate` are given they must still match, so a
+ *   decision made on one screen cannot be applied to a different proposal.
+ * @returns {{outcome: string, revision: object|null}} `conflict` when a
+ *   revision exists for that observation but is not the one the user saw.
+ */
+export function evaluateRevisionTarget(table, { quote, date, accepted, candidate }) {
+  const forKey = table.pendingRevisions.filter((entry) => entry.quote === quote && entry.date === date);
+
+  if (forKey.length === 0) {
+    return { outcome: revisionOutcomes.notFound, revision: null };
+  }
+
+  const match = forKey.find((entry) => (candidate === undefined || entry.candidate === candidate) && (accepted === undefined || entry.accepted === accepted));
+  const currentlyAccepted = table.observations[quote]?.[date]?.[0];
+
+  if (!match || (accepted !== undefined && currentlyAccepted !== accepted)) {
+    return { outcome: revisionOutcomes.conflict, revision: null };
+  }
+
+  return { outcome: revisionOutcomes.applied, revision: match };
+}
+
 /**
  * Accepts a pending revision: the candidate replaces the accepted value, and
  * the replaced value is kept in the revision log. This is the only way an
  * accepted observation changes. Nothing recalculates automatically.
  * @param {object} table
- * @param {{quote: string, date: string}} target
- * @returns {object} A new table (unchanged if there is no such revision).
+ * @param {{quote: string, date: string, accepted?: string, candidate?: string}} target
+ * @returns {object} A new table (unchanged if there is no such revision, or if
+ *   the identity given no longer matches; see evaluateRevisionTarget()).
  */
-export function applyPendingRevision(table, { quote, date }) {
+export function applyPendingRevision(table, target) {
   const next = structuredClone(table);
-  const revision = next.pendingRevisions.find((entry) => entry.quote === quote && entry.date === date);
+  const { quote, date } = target;
+  const { revision } = evaluateRevisionTarget(next, target);
 
   if (!revision) {
     return next;
@@ -654,9 +702,27 @@ export function applyPendingRevision(table, { quote, date }) {
     current: revision.candidate,
     currentFetch: revision.candidateFetch
   });
-  next.pendingRevisions = next.pendingRevisions.filter((entry) => entry !== revision && !(entry.quote === quote && entry.date === date));
+  next.pendingRevisions = next.pendingRevisions.filter((entry) => !(entry.quote === quote && entry.date === date));
 
   return compact(next);
+}
+
+/**
+ * When this table was last successfully checked with the provider.
+ * @param {object} table
+ * @param {string[]} [quotes] - Only checks that included one of these quotes.
+ * @returns {string|null} ISO time of the newest successful fetch, or null.
+ */
+export function getLastCheckedAt(table, quotes = null) {
+  let newest = null;
+
+  Object.values(table.fetches).forEach((record) => {
+    if (record.status === 'ok' && record.kind !== 'metadata' && (quotes === null || record.quotes.some((quote) => quotes.includes(quote))) && (newest === null || record.at > newest)) {
+      newest = record.at;
+    }
+  });
+
+  return newest;
 }
 
 /**

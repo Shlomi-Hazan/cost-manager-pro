@@ -35,6 +35,7 @@ import { createObservationIndex, selectObservationSet } from './observationSelec
 import {
   applyPendingRevision as applyRevisionToTable,
   createEmptyTable,
+  evaluateRevisionTarget,
   discardPendingRevision as discardRevisionFromTable,
   enforceSizeLimit,
   mergeTables,
@@ -318,12 +319,19 @@ export function createFxCache(options = {}) {
     /**
      * Explicitly accepts a detected revision. Nothing recalculates by itself:
      * reports keep their accepted values until the application chooses to
-     * apply this and recompute.
+     * apply this and recompute. Pass `accepted` and `candidate` (the values the
+     * user was shown) so a stale decision is refused instead of applied.
+     * @returns {{persisted: boolean, reason: string|null, outcome: string}}
+     *   outcome: 'applied' | 'not-found' | 'conflict'.
      */
     applyPendingRevision(target) {
-      const committed = commit((table) => ({ table: applyRevisionToTable(table, target) }));
+      const committed = commit((table) => {
+        const { outcome } = evaluateRevisionTarget(table, target);
 
-      return { persisted: committed.persisted, reason: committed.reason };
+        return { table: outcome === 'applied' ? applyRevisionToTable(table, target) : table, info: { outcome } };
+      });
+
+      return { persisted: committed.persisted, reason: committed.reason, outcome: committed.info.outcome };
     },
 
     /** Keeps the accepted value and dismisses a detected revision. */

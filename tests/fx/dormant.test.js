@@ -33,17 +33,17 @@ function sourceFiles(directory) {
   });
 }
 
-describe('only the rate-preparation service imports the FX infrastructure', () => {
+describe('only the two FX services import the FX infrastructure', () => {
   const application = sourceFiles(join(root, 'src')).filter((file) => !relative(root, file).startsWith(join('src', 'lib', 'fx')));
 
   it('scans the whole application source (not an empty list)', () => {
     expect(application.length).toBeGreaterThan(50);
   });
 
-  it('has exactly one importer outside it, and not startup', () => {
+  it('has exactly two importers outside it (rate preparation and the explicit refresh service), and not startup', () => {
     const importers = application.filter((file) => /from\s+['"][^'"]*\/fx\/|from\s+['"][^'"]*\/fx['"]|import\(\s*['"][^'"]*\/fx\//.test(readFileSync(file, 'utf8')));
 
-    expect(importers.map((file) => relative(root, file))).toEqual([join('src', 'services', 'historicalRatesService.js')]);
+    expect(importers.map((file) => relative(root, file))).toEqual([join('src', 'services', 'fxRatesService.js'), join('src', 'services', 'historicalRatesService.js')]);
     expect(readFileSync(join(root, 'src/main.jsx'), 'utf8')).not.toMatch(/fx/i);
   });
 

@@ -19,7 +19,7 @@
  *    nothing applies automatically (M2B.1).
  *  - The legacy flat demo/custom rates are not read here.
  */
-import { addDays, createEcbClient, createFxCache, createObservationIndex, ecbFirstObservationDate, isFxError, selectionStatus } from '../lib/fx/index.js';
+import { addDays, createEcbClient, createFxCache, createObservationIndex, ecbFirstObservationDate, getLastCheckedAt, isFxError, selectionStatus } from '../lib/fx/index.js';
 import { toIsoDate } from '../lib/reporting/historicalConversion.js';
 
 // The ECB publishes on business days; the longest gap seen is 5 days, so a
@@ -36,6 +36,16 @@ export const maxRequestsPerPreparation = 8;
 
 let defaultCache = null;
 let defaultClient = null;
+
+/** The one browser cache shared by reports and the Settings controls. */
+export function getSharedFxCache() {
+  return getDefaultCache();
+}
+
+/** The one provider client shared by reports and the Settings controls. */
+export function getSharedEcbClient() {
+  return getDefaultClient();
+}
 
 function getDefaultCache() {
   defaultCache ??= createFxCache();
@@ -174,7 +184,7 @@ export async function prepareHistoricalRates({ costs, targetCurrency, referenceD
   const lookups = neededLookups(costs, targetCurrency);
 
   if (lookups.length === 0) {
-    return { index: null, needed: false, requests: [], cacheStatus: 'not-read', persistence: 'none' };
+    return { index: null, needed: false, requests: [], cacheStatus: 'not-read', persistence: 'none', fx: null };
   }
 
   const requests = [];
@@ -216,6 +226,13 @@ export async function prepareHistoricalRates({ costs, targetCurrency, referenceD
     needed: true,
     requests,
     cacheStatus: snapshot.status,
-    persistence: snapshot.persistence
+    persistence: snapshot.persistence,
+    // What the snapshot knew when the report was made. A report is a snapshot:
+    // these are fixed at this moment and never updated afterwards.
+    fx: {
+      lastCheckedAt: getLastCheckedAt(snapshot.table),
+      revisionCount: snapshot.table.revisionLog.length,
+      pendingRevisions: snapshot.table.pendingRevisions.map(({ quote, date, accepted, candidate }) => ({ quote, date, accepted, candidate }))
+    }
   };
 }
