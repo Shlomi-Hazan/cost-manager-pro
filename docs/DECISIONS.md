@@ -2202,6 +2202,78 @@ milestone:
 | OD-013 | Storage engine (`localStorage` or IndexedDB) for larger data sets | `localStorage` kept in M1 (ADR-042); revisit later |
 | OD-014 | TypeScript adoption | Not scheduled |
 
+# ADR-050 — Dated ECB Conversion in Reports, Charts and Exports (M2B.2)
+
+**Status:** ACCEPTED (implemented in M2B.2; **in review, not merged**)  
+**Date:** 2026-10-12
+
+## Decision
+
+Reports, charts and exports convert every expense with the European Central
+Bank reference rate for **that expense's own date**, using the M2B.1
+infrastructure (ADR-049). The flat demonstration table is no longer used by any
+reporting path.
+
+1. **One canonical pathway.** `src/lib/reporting/` (pure, synchronous) converts
+   and aggregates; `src/services/historicalRatesService.js` (async) prepares
+   rates first; `src/services/historicalReportService.js` is the entry point the
+   screens call. Monthly report, yearly report, monthly pie, yearly bar chart and
+   Excel/PDF all derive from the same conversion, so they cannot disagree. No
+   React component or export service contains a conversion formula.
+2. **Which rate.** The latest ECB observation set dated **on or before** the
+   expense's stored local calendar date, with the **same observation date for
+   both currencies**. Weekend/holiday expenses use the preceding business day;
+   an observation after the expense date is never used. The expense date, the
+   observation date and the fetch time are kept distinct. Same-currency expenses
+   use no rate; EUR is exactly 1.
+3. **Policy B is unchanged.** Exact decimals, one division per conversion, no
+   per-expense rounding, one rounding (half away from zero) at display/export.
+4. **No partial totals (incomplete-report contract).** A total (monthly, yearly,
+   annual, pie) exists only when **every** included expense converted. Otherwise
+   it is `null`, shown as "Unavailable" with the count of affected expenses and
+   the reason; the original rows still list. A bar-chart month is `empty` (valid
+   zero), `complete`, or `incomplete` (no amount, never drawn as zero); a pie is
+   not drawn from an incomplete conversion. Excel/PDF write "Unavailable" in the
+   same places and flag the conversion; they never write 0 for it. No rate is
+   ever invented, defaulted or taken from the demo table.
+5. **Async preparation, sync calculation.** Before a report, the service reads
+   the ECB cache once, finds the (date, currency) pairs it cannot prove, and
+   fetches only those as a few merged ranges (a week of look-back each, ranges
+   joined within 31 days, at most a year per request, at most 8 requests per
+   report). It then builds **one** observation index from **one** cache snapshot
+   and the calculation runs synchronously. No request when all expenses already
+   use the report currency or the cache already proves coverage; concurrent
+   identical requests are shared. A failed request is recorded as "tried", never
+   as "no data exists". `db.getReport()` is unchanged and remains synchronous; the
+   app no longer calls it for reporting.
+6. **Reproducibility.** Only accepted observations are used. A provider value
+   that disagrees with an accepted one becomes a pending revision that nothing
+   applies automatically; accepted observations are never refetched or
+   overwritten. A report is a snapshot: another tab writing the cache cannot
+   change figures mid-calculation. The observation dates and fetch times used are
+   part of the exported note/metadata, so a file can be traced to its sources.
+7. **Provenance wording.** Converted output says: ECB euro reference rates,
+   delivered through the Frankfurter API, with the observation date or range;
+   reference rates are informational, not necessarily the rate charged; cross
+   rates are calculated by Cost Manager Pro from EUR-base data; provisional rates
+   are flagged. Output with no rate used shows no rate note.
+8. **Legacy source.** The custom exchange-rate URL and the flat-rate cache are
+   kept, not deleted, not used by reports, never labeled ECB or verified, and
+   never requested while generating a report. Settings says so. The startup
+   demo-rate refresh was removed: nothing is fetched at startup.
+
+## Consequences
+
+- A report that needs a rate the device does not have and cannot fetch shows
+  "Unavailable" instead of a number. M2B.3 will improve this experience
+  (offline/stale/refresh UX, revision UI); it is not part of M2B.2.
+- Future-dated expenses have no rate and make a total unavailable until their
+  date arrives.
+- Storage, backup (v2) and expense schema (v2) are unchanged. The ECB cache is a
+  separate key that never enters a backup.
+
+---
+
 ---
 
 # 3. How to Change a Decision

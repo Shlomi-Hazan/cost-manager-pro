@@ -11,7 +11,7 @@ work starts. **Approving one milestone never approves the next one**
 | M1 | Reliability, Storage & Deployment | **Done** (PR #2, merged 2026-10-09; deployed to Vercel) |
 | Pre-M2 hotfix | Disclose demonstration exchange rates | **Done** (PR #3, merged) |
 | M2A | Financial Accuracy: money foundation | **Done**: M2A.2 (PR #4) and M2A.3 (PR #5) merged; M2A.3 passed seven production smoke checks |
-| M2B | Financial Accuracy: currency engine and live rates | **In progress**: M2B.1 (ECB infrastructure, dormant) in a draft PR; M2B.2 and M2B.3 not started |
+| M2B | Financial Accuracy: currency engine and live rates | **In progress**: M2B.1 merged (PR #6) and production-tested; M2B.2 (dated ECB conversion) in a draft PR; M2B.3 not started |
 | M3 | Design System & App Shell | Not started |
 | M4 | Expense Management Experience | Not started |
 | M5 | Personal Overview Dashboard | Not started |
@@ -128,13 +128,16 @@ Requirement IDs (`EXP-*`, `DATA-*`, and so on) are defined in
   `EURO` are still read), backup format version 2, and strict validation of
   new input with stable error codes. Stored history is never rejected or
   rewritten. Passed seven production smoke checks. **M2A is complete.**
-- **M2B — in progress (ADR-049).** The default rates are still demonstration
-  values until M2B.2.
-  - **M2B.1 — ECB provider and historical cache infrastructure (draft PR):**
-    client, parser, versioned cache, coverage tracking, and date selection under
-    `src/lib/fx/`. **Dormant:** nothing in the app uses it and no converted
-    amount changes.
-  - **M2B.2 — historical conversion integration:** not started.
+- **M2B — in progress (ADR-049, ADR-050).**
+  - **M2B.1 — ECB provider and historical cache infrastructure (done, merged as
+    PR #6; six production smoke checks passed):** client, parser, versioned
+    cache, coverage tracking, and date selection under `src/lib/fx/`.
+  - **M2B.2 — historical conversion integration (in progress, draft PR, not
+    merged):** reports, charts and exports convert each expense with the ECB
+    rate for its own date through one pathway; totals are never partial;
+    the demo-rate disclosure is replaced by ECB provenance for converted output;
+    the legacy custom source is kept but inactive. Deferred to M2B.3: offline
+    and stale-rate UX, refresh controls, pending-revision review UI.
   - **M2B.3 — user-facing states and reliability:** not started.
 
 - **Goal:** Every amount the app shows is correct and clearly formatted.

@@ -11,9 +11,11 @@ data in your own browser.
 > limitations are listed openly, and the planned improvements are in the
 > [roadmap](docs/ROADMAP.md). It is **not** production-ready.
 >
-> **Currency conversions use demonstration rates, not live market rates.**
-> Converted totals are for testing only and should not be used for financial
-> decisions. See [Financial accuracy](#financial-accuracy).
+> **Converted amounts use European Central Bank reference rates for each
+> expense's date** (delivered through the Frankfurter API). They are
+> informational and not necessarily the rate you were charged. If a rate cannot
+> be loaded, the total is shown as unavailable rather than guessed. This work
+> (M2B.2) is in review. See [Financial accuracy](#financial-accuracy).
 
 ## What it does today
 
@@ -45,9 +47,10 @@ data in your own browser.
 These are the main ones; details are in
 [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md):
 
-- **Exchange rates are demonstration values**, not live market rates, so
-  every cross-currency total, chart slice, and export is for testing only.
-  Real rates are planned, not implemented.
+- **Exchange rates are ECB reference rates, not transaction rates.** They need
+  a network connection the first time a date is converted (then they are
+  cached on the device). Offline with missing rates, a total is "Unavailable".
+  Stale-rate warnings and refresh controls are planned (M2B.3).
 - English only, left-to-right only. English and Hebrew (RTL) are planned
   for v1.
 - Mobile layout is limited: navigation and the expense list don't fit
@@ -63,27 +66,22 @@ These are the main ones; details are in
 
 ### Financial accuracy
 
-- **Built-in rates are samples.** The default source is a bundled file with
-  fixed values. It is not updated, has no date, and does not come from a
-  rates provider.
-- **Where this is disclosed.** Converted outputs show a "Demo exchange
-  rates" note: the monthly and yearly reports and the monthly and yearly
-  charts, but only when at least one amount was converted. Settings
-  explains the active source. Excel and PDF exports include the same
-  statement in the file.
-- **Custom sources are not verified.** If you configure your own rate
-  source, the note says "Exchange-rate source not verified". Cost Manager
-  Pro checks only the shape of the data; it cannot know where the rates come
-  from, how recent they are, or whether they match the market. No source is
-  ever labeled as verified.
-- **Known limit of the label.** The rates cache does not record which
-  source filled it, so the note follows the source configured now. Both
-  wordings are warnings, so a converted total is never shown without one.
-- **Rates are unchanged:** this is a disclosure, not a fix. Calculations now
-  use exact decimals with one rounding at display (ADR-047), but the rates are
-  still demonstration values.
-- **Planned, not implemented:** real, dated rates from the European Central
-  Bank through Frankfurter. See the [roadmap](docs/ROADMAP.md) (M2A and M2B).
+- **Where this is disclosed.** Converted reports, charts and exports show an
+  "ECB reference rates" note with the observation date or range, but only when
+  at least one amount was converted. Excel and PDF exports include the same
+  statement in the file. Provisional rates (the ECB has not yet published the
+  expense's own day) are flagged.
+- **Unavailable, never guessed.** If any expense cannot be converted, the total
+  says "Unavailable" with a count, the bar-chart month is marked, the pie is
+  not drawn, and exports say so. Same-currency reports work fully offline.
+- **The bundled sample file is no longer used for reports.** It is kept for the
+  legacy Settings flow and is not ECB data.
+- **Dated ECB rates (M2B.2, in review):** each expense is converted with the
+  ECB rate for its own date (the latest observation on or before it), using
+  exact decimals with one rounding at display (ADR-047, ADR-050). Reports,
+  charts and exports agree. No total is ever partial.
+- **Legacy source:** a custom exchange-rate URL saved in Settings is kept but
+  not used by reports. See the [roadmap](docs/ROADMAP.md) (M2B.3 is next).
 
 ## Tech stack
 
