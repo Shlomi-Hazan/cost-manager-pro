@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { createEcbClient } from '../../src/lib/fx/ecbClient.js';
 import { createFxCache } from '../../src/lib/fx/fxCache.js';

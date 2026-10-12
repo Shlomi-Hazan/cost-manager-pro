@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { buildEcbMetadataUrl, buildEcbRatesUrl, createEcbClient, parseRetryAfter } from '../../src/lib/fx/ecbClient.js';
 import { clientDefaults } from '../../src/lib/fx/constants.js';

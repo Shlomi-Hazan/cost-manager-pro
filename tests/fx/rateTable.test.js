@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { parseEcbObservations } from '../../src/lib/fx/ecbParser.js';
 import { createObservationIndex } from '../../src/lib/fx/observationSelection.js';
