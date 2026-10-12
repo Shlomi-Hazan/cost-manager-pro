@@ -293,7 +293,9 @@ describe('data management service', () => {
         description: 'Lunch'
       });
 
-      costsDatabase.updateCost(added.id, { ...makeCost(), id: undefined });
+      // 1234.57 is a valid NEW amount (the default fixture's 5 decimals is
+      // legacy-style data that updateCost now rejects as a changed value).
+      costsDatabase.updateCost(added.id, { ...makeCost({ sum: 1234.57 }), id: undefined });
       costsDatabase.deleteCost(added.id);
       setCustomExchangeRatesUrl('https://example.com/pro-rates.json');
       clearCustomExchangeRatesUrl();

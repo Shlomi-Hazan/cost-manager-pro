@@ -541,6 +541,25 @@ describe('ManageCostsPage legacy amounts', () => {
     localStorage.clear();
   });
 
+  // Legacy amounts (zero, negative, extra decimals...) are STORED data: they
+  // come from migration, restore or import, not from addCost(), which now
+  // enforces the strict new-input policy. So they are seeded directly.
+  function addStoredCost({ sum, currency = 'USD', year = 2026, month = 8, day = 24, hour = 9, minute = 5 }) {
+    const key = 'cost-manager-pro:costsdb:v2:costs';
+    const existing = JSON.parse(localStorage.getItem(key) ?? '{"costs":[]}').costs;
+
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        schemaVersion: 2,
+        costs: [
+          ...existing,
+          { id: `legacy-${existing.length}`, sum, currency, category: 'Food', description: 'Lunch', date: { day, month, year, hour, minute } }
+        ]
+      })
+    );
+  }
+
   function storedSums() {
     return costsDatabase.getAllCosts().map((cost) => cost.sum);
   }

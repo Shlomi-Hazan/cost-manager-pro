@@ -23,6 +23,7 @@
  * category, description — and the required method signatures above are
  * treated as a protected, external contract throughout this file.
  */
+import { throwFirstCostInputError, validateChangedCostFields, validateNewCost } from './costInput.js';
 import { getCachedExchangeRates } from './exchangeRatesCache.js';
 import { amountToNumber } from './money/decimal.js';
 import { sumRecordsInCurrency } from './money/money.js';
@@ -194,6 +195,10 @@ function openCostsDB(databaseName, databaseVersion) {
      */
     addCost(cost) {
       validateCost(cost);
+      // A NEW expense must satisfy the full input policy (M2A.3), the same
+      // rules as the Add Cost form. Legacy data enters through restore,
+      // import and migration instead, which never reach this check.
+      throwFirstCostInputError(validateNewCost(cost));
 
       const storedCost = {
         id: generateCostId(),
@@ -245,12 +250,16 @@ function openCostsDB(databaseName, databaseVersion) {
       validateCostId(id);
 
       const costs = store.readCosts();
+      const stored = costs.find((storedCost) => storedCost.id === id);
 
-      if (!costs.some((storedCost) => storedCost.id === id)) {
+      if (!stored) {
         return null;
       }
 
       validateEditableCost(cost);
+      // Only fields that actually changed must meet the input policy (M2A.3);
+      // an unchanged legacy value is preserved exactly.
+      throwFirstCostInputError(validateChangedCostFields(cost, stored));
 
       // Full editable payload replaces the stored record; id is kept.
       const updatedCost = {

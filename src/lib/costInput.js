@@ -16,6 +16,24 @@
  * matches message text. Wording lives in utils/costInputMessages.js so it can
  * be localized later.
  *
+ * The same rules guard the database API (db.js addCost/updateCost) through
+ * validateNewCost() and validateChangedCostFields() below, so a programmatic
+ * caller cannot create or change an expense in a way the forms reject:
+ *  - A NEW expense (addCost) must satisfy every rule.
+ *  - An UPDATE (updateCost) is compared with the stored record: only fields
+ *    whose value actually changed must satisfy the rules; an unchanged field
+ *    keeps its exact stored value, however old or unusual (legacy data).
+ *  - Restore, import and migration never call these checks; they accept
+ *    history through the stored-data validation and the migration chain.
+ * LIMIT OF NUMBER INPUT: the database receives a JavaScript Number, not the
+ * text the user typed. A Number only reveals its shortest round-trip decimal
+ * form, so typed trailing zeros ("1.990") or leading zeros cannot be seen and
+ * are not rejected there, while values that are not 15 significant digits or
+ * fewer (0.1 + 0.2), or that print in exponent form (1e-21, 1e21), are judged
+ * by their decimal expansion. Exact-text guarantees therefore belong to the
+ * forms (parseAmountInput); the database guarantees everything a Number can
+ * carry.
+ *
  * Amount rules (new input only):
  *  - plain decimal digits with an optional single "." and at least one digit
  *    after it; "," is not a decimal or grouping separator, and no sign,
@@ -145,7 +163,7 @@ export function parseAmountInput(text, currency) {
   return { ok: true, amount, sum: Number(amount) };
 }
 
-function validateText(raw, { required, tooLong, invalidCharacters, maxLength }) {
+function validateText(raw, { required, tooLong, invalidCharacters, maxLength }, { measureRaw = false } = {}) {
   const cleaned = raw.trim();
 
   if (cleaned === '') {
@@ -158,7 +176,7 @@ function validateText(raw, { required, tooLong, invalidCharacters, maxLength }) 
 
   // Counted in characters (code points), not UTF-16 units, so an emoji or a
   // Hebrew letter counts once.
-  if (Array.from(cleaned).length > maxLength) {
+  if (Array.from(measureRaw ? raw : cleaned).length > maxLength) {
     return fail(tooLong, { max: maxLength });
   }
 
@@ -176,10 +194,12 @@ function validateDate(dateText) {
     return fail(costInputErrorCodes.dateFormat);
   }
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
+  return validateDateParts(Number(match[3]), Number(match[2]), Number(match[1]));
+}
 
+// Day, month and year of a typed or supplied date. Local calendar fields
+// only; no timezone conversion happens here.
+function validateDateParts(day, month, year) {
   if (year < inputLimits.minYear || year > inputLimits.maxYear) {
     return fail(costInputErrorCodes.dateYearOutOfRange, {
       min: inputLimits.minYear,
@@ -187,7 +207,6 @@ function validateDate(dateText) {
     });
   }
 
-  // Local calendar date fields only; no timezone conversion happens here.
   if (month < 1 || month > 12 || !isRealCalendarDate(day, month, year)) {
     return fail(costInputErrorCodes.dateInvalid);
   }
@@ -309,4 +328,111 @@ export function validateCostInput(values, original = null) {
   }
 
   return { isValid: Object.keys(errors).length === 0, errors, value };
+}
+
+/*
+ * ---- Database boundary (db.js) ----
+ */
+
+/**
+ * Thrown by the database API when a new or changed expense breaks the
+ * input policy. A TypeError, like the other validation errors of db.js, with
+ * stable fields for callers: `field` ("sum", "category", ...), `code` (one of
+ * costInputErrorCodes) and `params`. The message only helps debugging;
+ * nothing should depend on its wording.
+ */
+export class CostInputError extends TypeError {
+  constructor(field, error) {
+    super(`cost.${field} is not valid for a new or changed expense (${error.code}).`);
+    this.name = 'CostInputError';
+    this.field = field;
+    this.code = error.code;
+    this.params = error.params;
+  }
+}
+
+/**
+ * Validates a JavaScript Number as an amount for a new or changed expense,
+ * by its shortest round-trip decimal form (see "LIMIT OF NUMBER INPUT").
+ * @param {number} sum - A finite Number.
+ * @param {string} currency
+ * @returns {{ok: boolean, error?: {code: string, params: object}}}
+ */
+export function validateAmountNumber(sum, currency) {
+  const result = parseAmountInput(normalizeAmount(sum), currency);
+
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+const categoryRules = {
+  required: costInputErrorCodes.categoryRequired,
+  tooLong: costInputErrorCodes.categoryTooLong,
+  invalidCharacters: costInputErrorCodes.categoryInvalidCharacters,
+  maxLength: inputLimits.maxCategoryLength
+};
+
+const descriptionRules = {
+  required: costInputErrorCodes.descriptionRequired,
+  tooLong: costInputErrorCodes.descriptionTooLong,
+  invalidCharacters: costInputErrorCodes.descriptionInvalidCharacters,
+  maxLength: inputLimits.maxDescriptionLength
+};
+
+function firstErrorsOnly(entries) {
+  return Object.fromEntries(entries.filter(([, result]) => !result.ok).map(([field, result]) => [field, result.error]));
+}
+
+/**
+ * Rules for a NEW expense given as a database record. The fields are checked
+ * as supplied (the database does not trim or rewrite them), so the length
+ * limits apply to the stored value itself.
+ * @param {{sum: number, currency: string, category: string, description: string}} cost
+ * @returns {object} A map of field to { code, params }; empty when valid.
+ */
+export function validateNewCost(cost) {
+  return firstErrorsOnly([
+    ['sum', validateAmountNumber(cost.sum, cost.currency)],
+    ['category', validateText(cost.category, categoryRules, { measureRaw: true })],
+    ['description', validateText(cost.description, descriptionRules, { measureRaw: true })]
+  ]);
+}
+
+/**
+ * Rules for an UPDATE: only a field whose value differs from the stored
+ * record must meet the rules; an unchanged field keeps its exact stored
+ * value (legacy data stays editable without being rewritten or rejected).
+ * The date's day/month/year and its hour/minute are separate units, so
+ * changing only the time never revalidates an old date.
+ * @param {object} cost - The full editable payload.
+ * @param {object} stored - The record currently stored under that id.
+ * @returns {object} A map of field to { code, params }; empty when valid.
+ */
+export function validateChangedCostFields(cost, stored) {
+  const dateUnchanged =
+    cost.date.day === stored.date.day &&
+    cost.date.month === stored.date.month &&
+    cost.date.year === stored.date.year;
+  const skipped = { ok: true };
+
+  return firstErrorsOnly([
+    ['sum', Object.is(cost.sum, stored.sum) ? skipped : validateAmountNumber(cost.sum, cost.currency)],
+    ['category', cost.category === stored.category ? skipped : validateText(cost.category, categoryRules, { measureRaw: true })],
+    [
+      'description',
+      cost.description === stored.description ? skipped : validateText(cost.description, descriptionRules, { measureRaw: true })
+    ],
+    ['date', dateUnchanged ? skipped : validateDateParts(cost.date.day, cost.date.month, cost.date.year)]
+  ]);
+}
+
+/**
+ * Throws a CostInputError for the first rule that failed.
+ * @param {object} errors - A map from validateNewCost/validateChangedCostFields.
+ */
+export function throwFirstCostInputError(errors) {
+  const [field, error] = Object.entries(errors)[0] ?? [];
+
+  if (field) {
+    throw new CostInputError(field, error);
+  }
 }
