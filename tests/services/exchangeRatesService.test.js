@@ -24,7 +24,7 @@ import {
 const validRates = {
   USD: 1,
   GBP: 0.5,
-  EURO: 0.8,
+  EUR: 0.8,
   ILS: 4
 };
 
@@ -115,7 +115,7 @@ describe('exchangeRatesService', () => {
     globalThis.fetch = mockFetchResponse({
       USD: 1,
       GBP: 0.5,
-      EURO: 0.8
+      EUR: 0.8
     });
 
     await expect(refreshExchangeRates()).rejects.toThrow(
@@ -147,7 +147,7 @@ describe('exchangeRatesService', () => {
     globalThis.fetch = mockFetchResponse({
       USD: 1,
       GBP: 0.5,
-      EURO: 0.8
+      EUR: 0.8
     });
 
     await expect(refreshExchangeRates()).rejects.toThrow();

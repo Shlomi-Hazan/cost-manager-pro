@@ -10,7 +10,7 @@ import { aggregateCostsByCategory } from '../../src/utils/chartAggregation.js';
 const validRates = {
   USD: 1,
   GBP: 0.5,
-  EURO: 0.8,
+  EUR: 0.8,
   ILS: 4
 };
 
@@ -137,11 +137,11 @@ describe('chart aggregation', () => {
         [
           {
             sum: 40,
-            currency: 'EURO',
+            currency: 'EUR',
             category: 'BOOKS'
           }
         ],
-        'EURO'
+        'EUR'
       )
     ).toEqual([
       {

@@ -7,7 +7,8 @@ import {
   currentDocument,
   legacyCosts,
   makeCost,
-  quotaError
+  quotaError,
+  upgradedLegacyCosts
 } from './fixtures.js';
 
 const now = new Date('2026-10-09T08:15:00.000Z');
@@ -45,6 +46,8 @@ function misreportWrittenData(originalValue) {
   });
 }
 
+const sampleCosts = upgradedLegacyCosts();
+
 describe('cost store', () => {
   let store;
 
@@ -65,10 +68,10 @@ describe('cost store', () => {
     });
 
     it('reads a valid dataset', () => {
-      localStorage.setItem(appDataKey, currentDocument(legacyCosts));
+      localStorage.setItem(appDataKey, currentDocument(sampleCosts));
 
       expect(store.inspect().status).toBe('ready');
-      expect(store.readCosts()).toEqual(legacyCosts);
+      expect(store.readCosts()).toEqual(sampleCosts);
     });
 
     it('distinguishes damaged data from an empty dataset and keeps the raw value', () => {
@@ -105,7 +108,7 @@ describe('cost store', () => {
       store.modifyCosts((costs) => [...costs, makeCost()], now);
 
       expect(JSON.parse(localStorage.getItem(appDataKey))).toEqual({
-        schemaVersion: 1,
+        schemaVersion: 2,
         costs: [makeCost()]
       });
     });
@@ -115,7 +118,7 @@ describe('cost store', () => {
       ['a non-array root', '{"some": "object"}'],
       ['an invalid record', currentDocument([makeCost({ currency: 'XYZ' })])],
       ['a duplicate id', currentDocument([makeCost(), makeCost()])],
-      ['a newer schema version', '{"schemaVersion": 2, "costs": []}']
+      ['a newer schema version', '{"schemaVersion": 3, "costs": []}']
     ])('never overwrites stored data containing %s', (_label, rawValue) => {
       localStorage.setItem(appDataKey, rawValue);
       const change = vi.fn((costs) => [...costs, makeCost({ id: 'new' })]);
@@ -186,8 +189,8 @@ describe('cost store', () => {
         rawValue: legacyRaw
       });
       expect(JSON.parse(localStorage.getItem(appDataKey))).toEqual({
-        schemaVersion: 1,
-        costs: [...legacyCosts, makeCost({ id: 'new' })]
+        schemaVersion: 2,
+        costs: [...sampleCosts, makeCost({ id: 'new' })]
       });
     });
 
@@ -197,7 +200,7 @@ describe('cost store', () => {
       localStorage.setItem(appDataKey, legacyRaw);
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        expect(store.readCosts()).toEqual(legacyCosts);
+        expect(store.readCosts()).toEqual(sampleCosts);
       }
 
       expect(localStorage.getItem(appDataKey)).toBe(legacyRaw);
@@ -221,8 +224,8 @@ describe('cost store', () => {
       failure.mockRestore();
       store.modifyCosts((costs) => costs, now);
 
-      expect(store.inspect().sourceSchemaVersion).toBe(1);
-      expect(store.readCosts()).toEqual(legacyCosts);
+      expect(store.inspect().sourceSchemaVersion).toBe(2);
+      expect(store.readCosts()).toEqual(sampleCosts);
       expect(readSnapshot().rawValue).toBe(legacyRaw);
     });
 

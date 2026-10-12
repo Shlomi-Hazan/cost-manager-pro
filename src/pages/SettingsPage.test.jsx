@@ -26,14 +26,14 @@ import SettingsPage from './SettingsPage.jsx';
 const validRates = {
   USD: 1,
   GBP: 0.5,
-  EURO: 0.8,
+  EUR: 0.8,
   ILS: 4
 };
 
 const defaultRates = {
   USD: 1,
   GBP: 0.6,
-  EURO: 0.7,
+  EUR: 0.7,
   ILS: 3.4
 };
 
@@ -246,7 +246,7 @@ describe('SettingsPage', () => {
     mockFetchResponse({
       USD: 1,
       GBP: 0.5,
-      EURO: 0.8
+      EUR: 0.8
     });
     renderSettingsPage();
 
@@ -274,7 +274,7 @@ describe('SettingsPage', () => {
     mockFetchResponse({
       USD: 1,
       GBP: 0.5,
-      EURO: 0.8
+      EUR: 0.8
     });
     renderSettingsPage();
 

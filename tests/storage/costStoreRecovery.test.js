@@ -20,7 +20,7 @@ import {
  */
 const now = new Date('2026-10-09T08:15:00.000Z');
 const earlierCosts = [makeCost({ id: 'earlier', sum: 1234.56789 })];
-const currentCosts = [makeCost({ id: 'current', sum: 0.1, currency: 'EURO' })];
+const currentCosts = [makeCost({ id: 'current', sum: 0.1, currency: 'EUR' })];
 const earlierRaw = currentDocument(earlierCosts);
 const currentRaw = currentDocument(currentCosts);
 

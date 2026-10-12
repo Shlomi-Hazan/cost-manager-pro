@@ -34,7 +34,7 @@ Nothing marked **Approved** or **Optional** exists in the app today.
 | EXP-6 | Delete an expense after confirmation | **Exists** | No undo |
 | EXP-7 | Free-text categories with common suggestions; "food", "Food", and "FOOD" group together | **Exists** | `src/utils/category.js` |
 | EXP-8 | Manage the category list (rename, merge, set icon or color) | Approved | M4 |
-| EXP-9 | Product validation: amount > 0, sensible decimals, length limits, valid dates | Approved | M2. Today any finite number is accepted, including negative values |
+| EXP-9 | Product validation: amount > 0, sensible decimals, length limits, valid dates | **Exists (M2A.3)** | For new and changed input only: amount greater than zero, the currency's decimals, 12 integer and 15 significant digits, category 50 and description 200 characters, real calendar dates (years 1900-2999). Stored data is never rejected on read; unchanged fields of an old record keep their stored values (ADR-048) |
 | EXP-10 | Undo after delete | Optional | |
 | EXP-11 | Recurring expenses | Optional | |
 
@@ -81,12 +81,12 @@ Nothing marked **Approved** or **Optional** exists in the app today.
 
 | ID | Requirement | Status | Notes / milestone |
 |---|---|---|---|
-| CUR-1 | Supported currencies: USD, ILS, GBP, and EURO (non-ISO code kept from the course) | **Exists** | Moving to ISO `EUR` needs a data migration, planned for M2 |
+| CUR-1 | Supported currencies: USD, ILS, GBP, and EUR (ISO 4217) | **Exists (M2A.3)** | `EURO` was migrated to `EUR` (schema 1 → 2, ADR-048). Old data, old backups, and old rate sources that say `EURO` are still read and upgraded in memory |
 | CUR-2 | Convert totals into a chosen currency through one shared function | **Exists** | `src/utils/currency.js` |
 | CUR-3 | Exchange rates are fetched and validated before use; the last valid rates are cached | **Exists** | Fixed sample values (`public/exchange-rates.json`), **not real market rates**. Disclosed on screen and in exports (CUR-8) |
 | CUR-4 | Choose a custom exchange-rate URL in Settings, tested before it is saved | **Exists** | |
 | CUR-5 | Real exchange rates with an "as of" date and a stale-rates warning | Approved | M2B. Planned provider: the European Central Bank's reference rates through Frankfurter (approved direction, **not implemented**). The source must be free and need no secret key |
-| CUR-6 | Money shown with correct currency formatting and a defined rounding policy | Implemented (M2A.2) | `big.js` decimal arithmetic, Policy B (exact until one rounding at display/export), half away from zero, `Intl.NumberFormat` formatting; see ADR-047. Computed totals show the currency's minor-unit digits; stored per-cost amounts are shown as stored. Input validation (M2A.3) and the `EURO` → `EUR` migration are not done; the rates are still the demo values |
+| CUR-6 | Money shown with correct currency formatting and a defined rounding policy | Implemented (M2A.2) | `big.js` decimal arithmetic, Policy B (exact until one rounding at display/export), half away from zero, `Intl.NumberFormat` formatting; see ADR-047. Computed totals show the currency's minor-unit digits; stored per-cost amounts are shown as stored. The `EURO` → `EUR` migration and input validation are done (M2A.3); the rates are still the demo values (real rates are M2B) |
 | CUR-7 | More currencies and a user-chosen base currency | Optional | |
 | CUR-8 | Converted outputs say what kind of rates they use: demonstration data (the bundled default) or an unverified custom source. Nothing is ever labeled verified | **Exists (pre-M2 hotfix)** | Shown on the monthly and yearly reports and charts, only when an amount was converted; explained in Settings; included in Excel and PDF exports. The label follows the source configured now, because the rates cache records no source. Calculations are unchanged |
 

@@ -1,6 +1,6 @@
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { costsDatabase } from '../lib/costsDatabase.js';
@@ -167,7 +167,7 @@ describe('AddCostPage', () => {
     await user.type(screen.getByLabelText('Description'), 'Lunch');
     await user.click(screen.getByRole('button', { name: 'Add Cost' }));
 
-    expect(screen.getByText('Enter a valid numeric sum.')).toBeInTheDocument();
+    expect(screen.getByText('Enter the sum using digits and an optional decimal point, for example 12.50.')).toBeInTheDocument();
     expect(costsDatabase.getReport('USD', 2026, 8).costs).toHaveLength(0);
   });
 
@@ -207,7 +207,7 @@ describe('AddCostPage', () => {
       'USD',
       'ILS',
       'GBP',
-      'EURO'
+      'EUR'
     ]);
   });
 
@@ -321,5 +321,82 @@ describe('AddCostPage', () => {
 
     expect(screen.getByText('Enter a category.')).toBeInTheDocument();
     expect(costsDatabase.getReport('USD', 2026, 8).costs).toHaveLength(0);
+  });
+
+  // M2A.3: strict new-input policy, shown through the form. The behavior is
+  // specified by error code in tests/validation; this checks the wiring.
+  describe('strict amount validation for new expenses', () => {
+    it.each([
+      ['0', 'Enter an amount greater than zero.'],
+      ['0.00', 'Enter an amount greater than zero.'],
+      ['-5', 'Enter an amount greater than zero.'],
+      ['1.234', 'Use at most 2 decimal places.'],
+      ['1.230', 'Use at most 2 decimal places.'],
+      ['1234567890123', 'Use at most 12 digits before the decimal point.'],
+      ['1e5', 'Enter the sum using digits and an optional decimal point, for example 12.50.'],
+      ['0x10', 'Enter the sum using digits and an optional decimal point, for example 12.50.'],
+      ['1,5', 'Enter the sum using digits and an optional decimal point, for example 12.50.'],
+      ['+5', 'Enter the sum using digits and an optional decimal point, for example 12.50.'],
+      ['1 000', 'Enter the sum using digits and an optional decimal point, for example 12.50.']
+    ])('rejects %j without saving anything', async (sum, message) => {
+      const user = setupUser();
+      renderAddCostPage();
+
+      await submitCost(user, { sum, category: 'Food', description: 'Lunch' });
+
+      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(costsDatabase.getAllCosts()).toEqual([]);
+      // The form keeps what was typed.
+      expect(screen.getByLabelText('Sum')).toHaveValue(sum);
+    });
+
+    it('saves an amount in EUR as the canonical identifier, exactly as typed', async () => {
+      const user = setupUser();
+      renderAddCostPage();
+
+      await submitCost(user, { sum: '1234.56', currency: 'EUR', category: 'Food', description: 'Dinner' });
+
+      expect(screen.getByText('Cost added successfully.')).toBeInTheDocument();
+      const [stored] = costsDatabase.getAllCosts();
+
+      expect(stored).toMatchObject({ sum: 1234.56, currency: 'EUR' });
+      expect(localStorage.getItem('cost-manager-pro:costsdb:v2:costs')).not.toContain('EURO');
+    });
+
+    it('revalidates an entered amount when the currency changes', async () => {
+      const user = setupUser();
+      renderAddCostPage();
+
+      await user.type(screen.getByLabelText('Sum'), '0');
+      expect(screen.queryByText('Enter an amount greater than zero.')).not.toBeInTheDocument();
+
+      await chooseCurrency(user, 'EUR');
+      expect(screen.getByText('Enter an amount greater than zero.')).toBeInTheDocument();
+    });
+
+    it('does not show an error for an empty amount just because the currency changed', async () => {
+      const user = setupUser();
+      renderAddCostPage();
+
+      await chooseCurrency(user, 'GBP');
+      expect(screen.queryByText('Enter a cost sum.')).not.toBeInTheDocument();
+    });
+
+    it('rejects an over-long category or description', async () => {
+      const user = setupUser();
+      renderAddCostPage();
+
+      // Long values are set directly: typing 250 characters one key at a
+      // time is slow, and the length rules themselves are covered in
+      // tests/validation.
+      fireEvent.change(screen.getByLabelText('Sum'), { target: { value: '5' } });
+      fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'c'.repeat(51) } });
+      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'd'.repeat(201) } });
+      await user.click(screen.getByRole('button', { name: 'Add Cost' }));
+
+      expect(screen.getByText('Use at most 50 characters.')).toBeInTheDocument();
+      expect(screen.getByText('Use at most 200 characters.')).toBeInTheDocument();
+      expect(costsDatabase.getAllCosts()).toEqual([]);
+    });
   });
 });

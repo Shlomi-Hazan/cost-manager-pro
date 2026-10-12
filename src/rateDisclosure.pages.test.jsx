@@ -27,7 +27,7 @@ import * as chartCapture from './utils/chartCapture.js';
  * browser (see the PR), while these tests assert the note is in the
  * accessibility tree and not hidden.
  */
-const sampleRates = { USD: 1, GBP: 0.6, EURO: 0.7, ILS: 3.4 };
+const sampleRates = { USD: 1, GBP: 0.6, EUR: 0.7, ILS: 3.4 };
 const originalFetch = globalThis.fetch;
 const originalResizeObserver = globalThis.ResizeObserver;
 

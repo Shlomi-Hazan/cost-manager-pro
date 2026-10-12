@@ -46,8 +46,20 @@ export const legacyCosts = [
   })
 ];
 
+// The current stored format (schema 2: the euro is "EUR").
 export function currentDocument(costs) {
+  return JSON.stringify({ schemaVersion: 2, costs });
+}
+
+// The format written between M1 and M2A.3 (schema 1: the euro is "EURO").
+export function schemaOneDocument(costs) {
   return JSON.stringify({ schemaVersion: 1, costs });
+}
+
+// The same records the pre-M1 layout holds, as they look once upgraded to
+// the current schema: only the euro identifier differs.
+export function upgradedLegacyCosts() {
+  return legacyCosts.map((cost) => (cost.currency === 'EURO' ? { ...cost, currency: 'EUR' } : cost));
 }
 
 export function quotaError() {

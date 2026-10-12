@@ -5,7 +5,7 @@ import {
   parseCostDocument,
   serializeCostDocument
 } from '../../src/lib/storage/costDocument.js';
-import { currentDocument, legacyCosts, makeCost } from './fixtures.js';
+import { currentDocument, legacyCosts, makeCost, upgradedLegacyCosts } from './fixtures.js';
 
 function expectStorageError(callback, code, reason) {
   try {
@@ -24,19 +24,21 @@ function expectStorageError(callback, code, reason) {
   throw new Error('Expected a StorageError to be thrown.');
 }
 
+const sampleCosts = upgradedLegacyCosts();
+
 describe('cost document parsing and migration', () => {
   it('reads the current schema exactly', () => {
-    const result = parseCostDocument(currentDocument(legacyCosts));
+    const result = parseCostDocument(currentDocument(sampleCosts));
 
     expect(result.sourceSchemaVersion).toBe(currentCostSchemaVersion);
-    expect(result.costs).toEqual(legacyCosts);
+    expect(result.costs).toEqual(sampleCosts);
   });
 
   it('migrates the pre-M1 bare-array layout without changing any value', () => {
     const result = parseCostDocument(JSON.stringify(legacyCosts));
 
     expect(result.sourceSchemaVersion).toBe(0);
-    expect(result.costs).toEqual(legacyCosts);
+    expect(result.costs).toEqual(sampleCosts);
     expect(result.costs[0].sum).toBe(1234.56789);
     expect(result.costs[1].sum).toBe(0.1);
     expect(result.costs[2].sum).toBe(-5.5);
@@ -101,7 +103,10 @@ describe('cost document parsing and migration', () => {
     ['empty id', { id: '  ' }],
     ['non-numeric sum', { sum: '12' }],
     ['null sum', { sum: null }],
-    ['unsupported currency', { currency: 'EUR' }],
+    ['unsupported currency', { currency: 'XYZ' }],
+    // In schema 2 the legacy identifier is no longer valid: it must have been
+    // upgraded before the data is accepted.
+    ['the legacy EURO identifier in a current document', { currency: 'EURO' }],
     ['missing category', { category: undefined }],
     ['missing description', { description: undefined }],
     ['missing date', { date: undefined }],
@@ -132,10 +137,10 @@ describe('cost document parsing and migration', () => {
 
   it('rejects data from a newer schema version instead of reading it', () => {
     const error = expectStorageError(
-      () => parseCostDocument('{"schemaVersion": 2, "costs": [], "newField": true}'),
+      () => parseCostDocument('{"schemaVersion": 3, "costs": [], "newField": true}'),
       'unsupported-version'
     );
 
-    expect(error.details.schemaVersion).toBe(2);
+    expect(error.details.schemaVersion).toBe(3);
   });
 });

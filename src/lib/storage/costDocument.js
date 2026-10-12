@@ -1,23 +1,67 @@
 /*
  * The stored format of an expense dataset and its migrations.
  *
- * Current format (schema version 1), stored as one JSON string:
+ * Current format (schema version 2), stored as one JSON string:
  *
- *   { "schemaVersion": 1, "costs": [ <cost record>, ... ] }
+ *   { "schemaVersion": 2, "costs": [ <cost record>, ... ] }
+ *
+ * Schema 2 differs from schema 1 only in the currency identifier: the euro
+ * is "EUR" (ISO 4217) instead of the earlier nonstandard "EURO". Nothing
+ * else about a record changes. Schema 1 is still read and is upgraded in
+ * memory; like every upgrade it becomes durable only through the next
+ * successful save, which keeps the original value as previous data.
  *
  * Older layout (schema version 0, written before M1): a bare JSON array of
  * the same cost records. It is still read and is upgraded in memory by the
  * migrations below; it is rewritten in the new format only on the next
- * successful save.
+ * successful save. Reading never writes.
  *
  * Every record of a dataset is validated before the dataset is accepted.
  * One bad record makes the whole dataset "damaged" rather than being
  * dropped, because silently discarding records would lose money data.
  */
+import { legacyEuroIdentifier } from '../../constants/currencies.js';
 import { validateStoredCost } from '../costValidation.js';
 import { StorageError, storageErrorCodes } from './storageErrors.js';
 
-export const currentCostSchemaVersion = 1;
+export const currentCostSchemaVersion = 2;
+
+function damaged(reason, message, details) {
+  return new StorageError(storageErrorCodes.damaged, message, {
+    details: { reason, ...details }
+  });
+}
+
+// Schema 1 -> 2: "EURO" becomes "EUR". Only that exact identifier is
+// renamed. Unknown or malformed currencies are left untouched (so they still
+// fail validation and the dataset is reported as damaged, never silently
+// turned into euros), and "EUR" itself was not a valid identifier under
+// schema 1, so a schema 1 record that already says "EUR" is rejected rather
+// than accepted by the upgrade. Every other field, the record order, and any
+// excess amount precision are preserved by reference-free copying.
+function migrateEuroIdentifier(document) {
+  if (!Array.isArray(document.costs)) {
+    return { ...document, schemaVersion: 2 };
+  }
+
+  const costs = document.costs.map((cost, index) => {
+    if (cost === null || typeof cost !== 'object') {
+      return cost;
+    }
+
+    if (cost.currency === 'EUR') {
+      throw damaged(
+        'invalid-record',
+        `Stored expense #${index + 1} is invalid: cost.currency "EUR" is not valid in this schema version.`,
+        { index }
+      );
+    }
+
+    return cost.currency === legacyEuroIdentifier ? { ...cost, currency: 'EUR' } : cost;
+  });
+
+  return { ...document, schemaVersion: 2, costs };
+}
 
 // Each migration upgrades a document from version N to N + 1 and must be a
 // pure function of its input.
@@ -25,13 +69,26 @@ const migrations = {
   0: (legacyCosts) => ({
     schemaVersion: 1,
     costs: legacyCosts
-  })
+  }),
+  1: migrateEuroIdentifier
 };
 
-function damaged(reason, message, details) {
-  return new StorageError(storageErrorCodes.damaged, message, {
-    details: { reason, ...details }
-  });
+/**
+ * Upgrades a list of records written under `schemaVersion` to the current
+ * schema, with the same migrations (and the same refusal of unknown or
+ * future versions) as a stored document. Used for backup files.
+ * @param {unknown} costs - Records exactly as they were written.
+ * @param {number} schemaVersion - The schema they were written under.
+ * @returns {unknown} The records under the current schema (not validated).
+ */
+export function upgradeCostRecords(costs, schemaVersion) {
+  let document = { schemaVersion, costs: structuredClone(costs) };
+
+  for (let version = schemaVersion; version < currentCostSchemaVersion; version += 1) {
+    document = migrations[version](document);
+  }
+
+  return document.costs;
 }
 
 function detectSchemaVersion(document) {

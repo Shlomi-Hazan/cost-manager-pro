@@ -15,7 +15,8 @@ import SectionCard from '../components/common/SectionCard.jsx';
 import { commonCategories } from '../constants/categories.js';
 import { supportedCurrencies } from '../constants/currencies.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
-import { normalizeCategoryInput } from '../utils/category.js';
+import { parseAmountInput, validateCostInput } from '../lib/costInput.js';
+import { getCostInputMessage, getCostInputMessages } from '../utils/costInputMessages.js';
 import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 /*
@@ -34,42 +35,29 @@ const initialFormValues = {
   description: ''
 };
 
-// UI-level validation only (non-empty description/category, numeric sum,
-// supported currency). This is intentionally stricter than db.js's own
-// validateCost() in places (e.g. rejecting an empty description), since
-// UI-only rules are free to be stricter without affecting grader
-// compatibility — see docs/REQUIREMENTS.md OQ-005.
+// Delegates to the central new-input policy (lib/costInput.js): positive
+// amounts only, exact decimal syntax, the currency's decimal places, bounded
+// category/description. The page only maps error codes to wording.
 function validateForm(values) {
-  const nextErrors = {};
-  const trimmedSum = values.sum.trim();
-  const numericSum = Number(trimmedSum);
-  const normalizedCategory = normalizeCategoryInput(values.category);
-
-  if (trimmedSum === '') {
-    nextErrors.sum = 'Enter a cost sum.';
-  } else if (!Number.isFinite(numericSum)) {
-    nextErrors.sum = 'Enter a valid numeric sum.';
-  }
-
-  // Currency/category/description: presence and support checks only.
-  if (!supportedCurrencies.includes(values.currency)) {
-    nextErrors.currency = 'Select a supported currency.';
-  }
-
-  if (normalizedCategory === '') {
-    nextErrors.category = 'Enter a category.';
-  }
-
-  if (values.description.trim() === '') {
-    nextErrors.description = 'Enter a description.';
-  }
+  const result = validateCostInput(values);
 
   return {
-    errors: nextErrors,
-    isValid: Object.keys(nextErrors).length === 0,
-    normalizedCategory,
-    numericSum
+    errors: getCostInputMessages(result.errors),
+    isValid: result.isValid,
+    value: result.value
   };
+}
+
+// The sum error (if any) for the typed sum in a currency, keyed for the
+// errors state. Empty input is not an error until the form is submitted.
+function getSumErrorFor(sumText, currency) {
+  if (sumText.trim() === '') {
+    return { sum: undefined };
+  }
+
+  const result = parseAmountInput(sumText, currency);
+
+  return { sum: result.ok ? undefined : getCostInputMessage(result.error) };
 }
 
 function AddCostPage() {
@@ -90,7 +78,10 @@ function AddCostPage() {
     }));
     setErrors((currentErrors) => ({
       ...currentErrors,
-      [name]: undefined
+      [name]: undefined,
+      // The decimals allowed depend on the currency, so a currency change
+      // revalidates a sum that has already been typed.
+      ...(name === 'currency' ? getSumErrorFor(formValues.sum, value) : {})
     }));
     setFeedback(null);
   }
@@ -143,10 +134,10 @@ function AddCostPage() {
       // src/lib/db.js) — this component never writes to localStorage
       // directly, keeping persistence rules centralized in one place.
       costsDatabase.addCost({
-        sum: validation.numericSum,
-        currency: formValues.currency,
-        category: validation.normalizedCategory,
-        description: formValues.description.trim()
+        sum: validation.value.sum,
+        currency: validation.value.currency,
+        category: validation.value.category,
+        description: validation.value.description
       });
 
       // Reset the form so the next entry starts from a clean slate.

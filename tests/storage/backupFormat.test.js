@@ -6,12 +6,12 @@ import {
   parseBackup,
   serializeBackup
 } from '../../src/lib/storage/backupFormat.js';
-import { legacyCosts, makeCost } from './fixtures.js';
+import { legacyCosts, makeCost, upgradedLegacyCosts } from './fixtures.js';
 
 const now = new Date('2026-10-09T08:15:00.000Z');
 
 function backupText(overrides = {}) {
-  return JSON.stringify({ ...createBackup(legacyCosts, now), ...overrides });
+  return JSON.stringify({ ...createBackup(sampleCosts, now), ...overrides });
 }
 
 function expectBackupError(text, code) {
@@ -28,28 +28,30 @@ function expectBackupError(text, code) {
   throw new Error('Expected a BackupError to be thrown.');
 }
 
+const sampleCosts = upgradedLegacyCosts();
+
 describe('backup file format', () => {
   it('contains versioned metadata and every record, and nothing else', () => {
-    const backup = createBackup(legacyCosts, now);
+    const backup = createBackup(sampleCosts, now);
 
     expect(Object.keys(backup).sort()).toEqual(
       ['app', 'costCount', 'costs', 'exportedAt', 'format', 'formatVersion'].sort()
     );
     expect(backup).toMatchObject({
       format: 'cost-manager-pro-backup',
-      formatVersion: 1,
+      formatVersion: 2,
       exportedAt: '2026-10-09T08:15:00.000Z',
       app: 'Cost Manager Pro',
       costCount: 3
     });
-    expect(backup.costs).toEqual(legacyCosts);
+    expect(backup.costs).toEqual(sampleCosts);
   });
 
   it('round-trips amounts, currencies, dates, times, and ids exactly', () => {
-    const parsed = parseBackup(serializeBackup(createBackup(legacyCosts, now)));
+    const parsed = parseBackup(serializeBackup(createBackup(sampleCosts, now)));
 
     expect(parsed).toEqual({
-      costs: legacyCosts,
+      costs: sampleCosts,
       exportedAt: '2026-10-09T08:15:00.000Z',
       costCount: 3
     });
@@ -87,7 +89,7 @@ describe('backup file format', () => {
   });
 
   it('rejects backups from a newer version', () => {
-    expectBackupError(backupText({ formatVersion: 2 }), 'unsupported-version');
+    expectBackupError(backupText({ formatVersion: 3 }), 'unsupported-version');
   });
 
   it('rejects a missing or invalid creation date', () => {

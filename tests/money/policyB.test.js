@@ -23,16 +23,36 @@ import { createRandom } from './oracle.js';
  * M2A.2 Policy B: exact decimals through every conversion and sum; one
  * rounding, half away from zero, at presentation/export.
  */
-const rates = { USD: 1, GBP: 0.6, EURO: 0.7, ILS: 3.4 };
+const rates = { USD: 1, GBP: 0.6, EUR: 0.7, ILS: 3.4 };
+
+let openedName = null;
 
 function openDatabase(name) {
+  openedName = name;
+
   return db.openCostsDB(name, 1);
 }
 
-function addAll(ob, entries) {
-  entries.forEach(([sum, currency, category = 'Food']) =>
-    ob.addCost({ sum, currency, category, description: `${sum} ${currency}` })
-  );
+// Stored amounts here include historical values with more decimals than a
+// currency uses (0.333). Such values enter the app as STORED data (migration,
+// restore, import), never through addCost(), which enforces the strict
+// new-input policy (M2A.3). So this helper seeds storage directly, with the
+// same record shape and the (faked) current date addCost would have used.
+function addAll(_ob, entries) {
+  const existing = JSON.parse(localStorage.getItem(getCostsStorageKey(openedName, 1)) ?? '{"costs":[]}').costs;
+  const costs = [
+    ...existing,
+    ...entries.map(([sum, currency, category = 'Food'], index) => ({
+      id: `seed-${existing.length + index}`,
+      sum,
+      currency,
+      category,
+      description: `${sum} ${currency}`,
+      date: { day: 15, month: 8, year: 2026, hour: 12, minute: 0 }
+    }))
+  ];
+
+  localStorage.setItem(getCostsStorageKey(openedName, 1), JSON.stringify({ schemaVersion: 2, costs }));
 }
 
 describe('Policy B', () => {

@@ -151,9 +151,9 @@ describe('yearly aggregation', () => {
   });
 
   it('uses the report currency for output currency', () => {
-    const result = buildYearlyMonthlyTotals(() => createReport(25, 'EURO'), 'EURO', 2026);
+    const result = buildYearlyMonthlyTotals(() => createReport(25, 'EUR'), 'EUR', 2026);
 
-    expect(result.every((entry) => entry.currency === 'EURO')).toBe(true);
+    expect(result.every((entry) => entry.currency === 'EUR')).toBe(true);
   });
 
   it('does not duplicate or omit any month', () => {

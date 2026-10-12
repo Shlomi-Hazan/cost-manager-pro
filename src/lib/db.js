@@ -23,6 +23,7 @@
  * category, description — and the required method signatures above are
  * treated as a protected, external contract throughout this file.
  */
+import { throwFirstCostInputError, validateChangedCostFields, validateNewCost } from './costInput.js';
 import { getCachedExchangeRates } from './exchangeRatesCache.js';
 import { amountToNumber } from './money/decimal.js';
 import { sumRecordsInCurrency } from './money/money.js';
@@ -100,7 +101,7 @@ function validateEditableCost(cost) {
 // Guards the required getReport() arguments once defaults have been applied.
 function validateReportArguments(currency, year, month) {
   if (!isSupportedCurrency(currency)) {
-    throw new TypeError('currency must be one of USD, ILS, GBP, EURO.');
+    throw new TypeError('currency must be one of USD, ILS, GBP, EUR.');
   }
 
   if (typeof year !== 'number' || !Number.isInteger(year)) {
@@ -184,7 +185,7 @@ function openCostsDB(databaseName, databaseVersion) {
      * (team extension) and the automatic added-on date (R-035).
      * @param {object} cost - The cost to add.
      * @param {number} cost.sum - Cost amount.
-     * @param {string} cost.currency - One of USD, ILS, GBP, EURO.
+     * @param {string} cost.currency - One of USD, ILS, GBP, EUR.
      * @param {string} cost.category - Free-text category.
      * @param {string} cost.description - Free-text description.
      * @returns {object} The stored cost, including its generated id/date
@@ -194,6 +195,10 @@ function openCostsDB(databaseName, databaseVersion) {
      */
     addCost(cost) {
       validateCost(cost);
+      // A NEW expense must satisfy the full input policy (M2A.3), the same
+      // rules as the Add Cost form. Legacy data enters through restore,
+      // import and migration instead, which never reach this check.
+      throwFirstCostInputError(validateNewCost(cost));
 
       const storedCost = {
         id: generateCostId(),
@@ -245,12 +250,16 @@ function openCostsDB(databaseName, databaseVersion) {
       validateCostId(id);
 
       const costs = store.readCosts();
+      const stored = costs.find((storedCost) => storedCost.id === id);
 
-      if (!costs.some((storedCost) => storedCost.id === id)) {
+      if (!stored) {
         return null;
       }
 
       validateEditableCost(cost);
+      // Only fields that actually changed must meet the input policy (M2A.3);
+      // an unchanged legacy value is preserved exactly.
+      throwFirstCostInputError(validateChangedCostFields(cost, stored));
 
       // Full editable payload replaces the stored record; id is kept.
       const updatedCost = {
@@ -302,7 +311,7 @@ function openCostsDB(databaseName, databaseVersion) {
     /**
      * Required method of the protected db.js contract.
      * @param {string} currency - Currency to report the total in; one of
-     *   USD, ILS, GBP, EURO.
+     *   USD, ILS, GBP, EUR.
      * @param {number} [year] - Report year; defaults to the current year
      *   (R-052) when omitted, matching the official `ob.getReport("USD")`
      *   sample.
