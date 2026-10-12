@@ -33,6 +33,7 @@ import {
 // Shared UI components, then local constants/db/services/utils below.
 import LoadingButtonLabel from '../common/LoadingButtonLabel.jsx';
 import ConversionNotices from '../common/ConversionNotices.jsx';
+import { useRatesChangedSince } from '../../hooks/useRatesChangedSince.js';
 import SectionCard from '../common/SectionCard.jsx';
 import { supportedCurrencies } from '../../constants/currencies.js';
 import { costsDatabase } from '../../lib/costsDatabase.js';
@@ -122,6 +123,9 @@ function YearlyBarChartSection() {
 
   // Editing any filter clears the previous result/errors, so stale output
   // is never shown next to filters that no longer match it.
+  // M2B.3: informational only; never rewrites the figures on screen.
+  const ratesChanged = useRatesChangedSince(yearlyResult?.fxStatus?.revisionCount ?? null);
+
   function handleChange(event) {
     const { name, value } = event.target;
 
@@ -140,6 +144,11 @@ function YearlyBarChartSection() {
   }
 
   // Validates, then fetches rates and builds the 12-month totals.
+  // An explicit regeneration with the same filters ("Try again" / "Generate again").
+  function handleRetry() {
+    return handleSubmit({ preventDefault() {} });
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -169,9 +178,11 @@ function YearlyBarChartSection() {
       setYearlyResult({
         complete: yearly.complete,
         currency: filters.currency,
+        fxStatus: yearly.fxStatus,
         incompleteNotice: yearly.incompleteNotice,
         monthlyTotals: yearly.months,
         rateDisclosure: yearly.partialRateDisclosure,
+        statusNotes: yearly.statusNotes,
         totalAmount: yearly.totalAmount,
         year: validation.chartYear
       });
@@ -365,7 +376,11 @@ function YearlyBarChartSection() {
             {/* M2B.2: ECB provenance and the explicit incomplete notice. */}
             <ConversionNotices
               incompleteNotice={yearlyResult.incompleteNotice}
+              isBusy={isLoading}
+              onRetry={handleRetry}
               rateDisclosure={yearlyResult.rateDisclosure}
+              ratesChanged={ratesChanged}
+              statusNotes={yearlyResult.statusNotes ?? []}
             />
 
             {exportErrorMessage ? (

@@ -17,6 +17,16 @@ export const recentCheckDays = 90;
 export const maxCheckRequests = 4;
 export const maxCheckRangeDays = 366;
 
+// Pages that show a report listen for this so they can say "rates changed"
+// without rewriting what is on screen.
+export const fxChangedEvent = 'cost-manager:fx-changed';
+
+function announceChange() {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new Event(fxChangedEvent));
+  }
+}
+
 // Only one provider operation at a time (a second click cannot double-send).
 let activeOperation = null;
 
@@ -221,6 +231,10 @@ export function getFxOverview({ cache = getSharedFxCache() } = {}) {
  */
 export function applyRevision(target, { cache = getSharedFxCache() } = {}) {
   const { outcome, persisted } = cache.applyPendingRevision({ quote: target.quote, date: target.date, accepted: target.accepted, candidate: target.candidate });
+
+  if (outcome === 'applied') {
+    announceChange();
+  }
 
   return { outcome, persisted };
 }

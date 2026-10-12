@@ -17,6 +17,7 @@ import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import DataManagementSection from '../components/settings/DataManagementSection.jsx';
+import FxRatesSection from '../components/settings/FxRatesSection.jsx';
 import { refreshExchangeRates } from '../services/exchangeRatesService.js';
 import {
   defaultExchangeRatesUrl,
@@ -158,6 +159,9 @@ function SettingsPage() {
       <PageHeader title="Settings">
         Manage your stored data and the exchange-rate source used by reports and charts.
       </PageHeader>
+
+      {/* M2B.3: control and review of the saved ECB rates. */}
+      <FxRatesSection />
 
       {/* Custom-URL form: submitting it calls handleSaveCustomSource above. */}
       <SectionCard

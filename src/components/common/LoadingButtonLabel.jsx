@@ -16,7 +16,7 @@ function LoadingButtonLabel({ children, isLoading, loadingText }) {
       {isLoading ? (
         <CircularProgress color="inherit" size={16} thickness={5} />
       ) : null}
-      <span>{isLoading ? loadingText : children}</span>
+      <span aria-live="polite">{isLoading ? loadingText : children}</span>
     </Stack>
   );
 }

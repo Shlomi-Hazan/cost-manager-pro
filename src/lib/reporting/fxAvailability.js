@@ -133,7 +133,8 @@ export function buildFxStatus({ prepared, items, summary, targetCurrency, browse
     pendingRevisions: relevantPending(prepared.fx?.pendingRevisions, items, targetCurrency),
     browserOffline,
     lastCheckedAt: prepared.fx?.lastCheckedAt ?? null,
-    revisionCount: prepared.fx?.revisionCount ?? 0,
+    // null when no rate was involved: there is nothing to go out of date.
+    revisionCount: prepared.fx?.revisionCount ?? null,
     loadedNow: requests.some((request) => request.ok)
   };
 }

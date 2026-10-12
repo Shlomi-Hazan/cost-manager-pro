@@ -139,3 +139,33 @@ export function getStatusNotes(status) {
 
   return notes;
 }
+
+/**
+ * Wording for the result of a Settings operation (fxRatesService.js).
+ * @param {object} result - { operation, status, newObservations, revisionsFound, persisted, cause }
+ * @returns {{severity: 'success'|'info'|'warning'|'error', text: string}}
+ */
+export function describeOperationResult(result) {
+  const saved = result.persisted === false ? ' The result could not be saved on this device, so it only lasts until you close this tab.' : '';
+
+  if (result.status === 'busy') {
+    return { severity: 'info', text: 'Another rate operation is already running. Wait for it to finish.' };
+  }
+
+  if (result.status === 'cancelled') {
+    return { severity: 'info', text: 'Cancelled. Nothing was changed.' };
+  }
+
+  if (result.status === 'failed' || result.status === 'partial') {
+    const cause = result.cause ? causeText[result.cause.code] : 'The request did not complete.';
+    const advice = result.cause && !result.cause.retryable ? '' : ' Try again later.';
+    const lead = result.status === 'partial' ? 'Part of the check did not complete. ' : 'The check did not complete. ';
+
+    return { severity: result.status === 'partial' ? 'warning' : 'error', text: `${lead}${cause}${advice}${saved}` };
+  }
+
+  const revisions = result.revisionsFound > 0 ? ` The ECB reports different values for ${result.revisionsFound} saved ${result.revisionsFound === 1 ? 'rate' : 'rates'}: review them below. Nothing was replaced.` : '';
+  const found = result.newObservations > 0 ? `Found ${result.newObservations} new ${result.newObservations === 1 ? 'rate' : 'rates'}.` : result.operation === 'check-revisions' ? 'Checked the saved rates.' : 'No new rates since the last check.';
+
+  return { severity: result.revisionsFound > 0 || result.persisted === false ? 'warning' : 'success', text: `${found}${revisions}${saved}` };
+}

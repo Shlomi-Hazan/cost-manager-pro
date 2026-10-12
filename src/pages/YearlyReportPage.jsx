@@ -15,6 +15,7 @@ import {
 // Shared UI components, then the required report/currency/db modules.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
 import ConversionNotices from '../components/common/ConversionNotices.jsx';
+import { useRatesChangedSince } from '../hooks/useRatesChangedSince.js';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import SortableReportTable from '../components/reports/SortableReportTable.jsx';
@@ -115,6 +116,9 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
 
   // Editing any filter clears the previous result/errors, so stale output
   // is never shown next to filters that no longer match it.
+  // M2B.3: informational only; never rewrites the figures on screen.
+  const ratesChanged = useRatesChangedSince(report?.fxStatus?.revisionCount ?? null);
+
   function handleChange(event) {
     const { name, value } = event.target;
 
@@ -134,6 +138,11 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
   }
 
   // Validates, then fetches rates and builds the detailed yearly report.
+  // An explicit regeneration with the same filters ("Try again" / "Generate again").
+  function handleRetry() {
+    return handleSubmit({ preventDefault() {} });
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -339,7 +348,11 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
             {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
             <ConversionNotices
               incompleteNotice={report.incompleteNotice}
+              isBusy={isLoading}
+              onRetry={handleRetry}
               rateDisclosure={report.rateDisclosure}
+              ratesChanged={ratesChanged}
+              statusNotes={report.statusNotes ?? []}
             />
 
             {exportErrorMessage ? (

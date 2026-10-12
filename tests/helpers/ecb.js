@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { addDays } from '../../src/lib/fx/ecbParser.js';
 import { createFxCache } from '../../src/lib/fx/fxCache.js';
 import { resetDefaultClient } from '../../src/services/historicalRatesService.js';
-import { clientResult, response } from '../fx/helpers.js';
+import { clientResult, fixture, response } from '../fx/helpers.js';
 
 /*
  * Deterministic ECB stand-ins for UI tests: no live network. The default
@@ -58,4 +58,40 @@ export function seedEcbCache({ from = '2020-01-01', to = '2030-12-31', rates = e
   const observations = observationsFor({ from, to, quotes, rates }).map(({ date, quote }) => ({ date, quote, rate: rates[quote] }));
 
   createFxCache().recordObservations(clientResult({ observations, quotes, from, to, fetchedAt }));
+}
+
+/**
+ * A provider stand-in with the three endpoints M2B.3 uses: metadata, latest
+ * and ranges. `latest` and `ranges` are rate tables (quote -> rate text).
+ * Everything is offline and deterministic.
+ */
+export function mockEcbRouter({ metadataEnd = '2026-10-12', latestDate = '2026-10-12', latest = { USD: '1.3', GBP: '0.9', ILS: '4' }, ranges = eurRates, gate = null } = {}) {
+  const metadata = JSON.parse(fixture('ecb-metadata.json'));
+
+  metadata.end_date = metadataEnd;
+
+  const fetch = vi.fn(async (url) => {
+    if (gate) {
+      await gate;
+    }
+
+    const parsed = new URL(url);
+    const params = parsed.searchParams;
+    const quotes = (params.get('quotes') ?? '').split(',').filter(Boolean);
+
+    if (parsed.pathname.endsWith('/providers/ecb')) {
+      return response(metadata, { url: String(url) });
+    }
+
+    if (params.get('from')) {
+      return response(observationsFor({ from: params.get('from'), to: params.get('to'), quotes, rates: ranges }));
+    }
+
+    return response(quotes.map((quote) => ({ provider: 'ECB', date: latestDate, base: 'EUR', quote, rate: Number(latest[quote]) })));
+  });
+
+  globalThis.fetch = fetch;
+  resetDefaultClient({ maxRetries: 0 });
+
+  return fetch;
 }
