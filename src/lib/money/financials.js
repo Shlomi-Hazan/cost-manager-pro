@@ -60,7 +60,17 @@ export function buildCategoryFinancials(costs, currency, rates) {
     groups.set(key, group);
   });
 
-  const groupAmounts = Array.from(groups.values()).map((group) => ({
+  return finishCategoryGroups(Array.from(groups.values()));
+}
+
+/**
+ * Sums each category's converted amounts exactly and derives the shares from
+ * the exact values. Shared by the legacy aggregation and the historical one.
+ * @param {{category: string, values: string[]}[]} groups
+ * @returns {{totalAmount: string, entries: object[]}}
+ */
+export function finishCategoryGroups(groups) {
+  const groupAmounts = groups.map((group) => ({
     category: group.category,
     amount: sumAmounts(group.values)
   }));

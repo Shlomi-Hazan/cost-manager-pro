@@ -180,26 +180,37 @@ format.js     the only place money becomes text (Intl.NumberFormat, one rounding
   values stay editable and are never rewritten. Restore, import and migration
   bypass these checks by design (they validate stored data instead).
 
-## 5c. ECB historical rates infrastructure (M2B.1, dormant)
+## 5c. ECB historical rates and conversion (M2B.1 + M2B.2)
 
-`src/lib/fx/` holds a provider client, a response parser, a versioned cache, and
-a pure observation selector for dated ECB reference rates (ADR-049). **Nothing in
-the running application imports it**: reports, charts, exports, Settings, and
-`getReport()` still use the demonstration rates of section 5, unchanged. M2B.2
-will wire it in.
+`src/lib/fx/` holds the provider client, parser, versioned cache and pure
+observation selector (ADR-049). Since M2B.2 (ADR-050) reports use them through
+one pathway; `getReport()` and the flat demo cache of section 5 remain for the
+legacy contract but **no report, chart or export uses them**.
 
 ```text
-fetch (async)  ->  ecbClient  ->  ecbParser  ->  fxCache (one key)  ->  observationSelection (sync)
-                   timeouts,       exact decimal   coverage per         final / provisional /
-                   retries         strings         currency + range     needs-fetch / unavailable
+screen (Monthly / Yearly / Charts / Bar)
+  -> historicalReportService.generate*()           async entry point
+       -> historicalRatesService.prepareHistoricalRates()    async
+            cache.inspect()  -> plan missing (date, currency) pairs
+            fetch merged ranges only (ecbClient) -> cache.record*()
+            -> ONE observation index from ONE cache snapshot
+       -> lib/reporting/historicalConversion.convertCosts()   sync, pure
+       -> lib/reporting/historicalReports.build*()            sync, pure
+  -> { total | null, months[], breakdown, rateDisclosure, incompleteNotice }
+  -> the same object feeds the screen and exportModels (Excel / PDF)
 ```
 
-- EUR-base observations (`1 EUR = rate QUOTE`); conversion stays
-  `amount x rate[target] / rate[source]`, one division, Policy B.
-- Selection is synchronous and only reads the local table, so `getReport()` can
-  stay synchronous once rates are prepared.
+- Each expense is converted with its own observation (latest on/before its local
+  date, same date for both currencies). `total` is `null` unless every expense
+  converted; there is no partial total. Months are `empty | complete |
+  incomplete`.
+- Exact decimals (Policy B); EUR-base observations (`1 EUR = rate QUOTE`);
+  conversion is `amount x rate[target] / rate[source]`, one division.
+- Selection is synchronous and reads only the prepared index, so the calculation
+  never fetches. Nothing is fetched at startup.
 - The cache key is separate from expenses, backups and the demo cache, so a
   cache failure cannot touch an expense.
+- Only `historicalRatesService.js` imports `src/lib/fx/` (guarded by a test).
 
 ## 6. Navigation and state
 

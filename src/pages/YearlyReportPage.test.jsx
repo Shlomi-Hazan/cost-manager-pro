@@ -3,7 +3,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setCachedExchangeRates } from '../lib/exchangeRatesCache.js';
+import { mockEcbFailure, mockEcbFetch, seedEcbCache } from '../../tests/helpers/ecb.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
 import * as excelExportService from '../services/export/excelExportService.js';
 import * as pdfExportService from '../services/export/pdfExportService.js';
@@ -16,13 +16,6 @@ import theme from '../theme.js';
  * protect that the app's own full-year report stays consistent with the
  * required per-month getReport() totals it is built from.
  */
-const validRates = {
-  USD: 1,
-  GBP: 0.5,
-  EUR: 0.8,
-  ILS: 4
-};
-
 const originalFetch = globalThis.fetch;
 
 function renderYearlyReportPage() {
@@ -42,16 +35,14 @@ function setupUser() {
   return userEvent.setup();
 }
 
-function mockSuccessfulRatesFetch(rates = validRates) {
-  globalThis.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: vi.fn().mockResolvedValue(rates)
-  });
+// M2B.2: converted figures use dated ECB observations. These stand-ins keep
+// every test offline; the rates keep the ratios the old flat table had.
+function mockSuccessfulRatesFetch() {
+  return mockEcbFetch();
 }
 
 function mockFailedRatesFetch() {
-  globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Network error'));
+  return mockEcbFailure();
 }
 
 function addCostOnDate({
@@ -155,6 +146,9 @@ function addSortableYearlyCosts() {
       description: 'Apple'
     }
   });
+  // Entering a cost moves the clock to its date; reports must run "today"
+  // after every expense, because a future-dated expense has no rate yet.
+  setLocalDate(2026, 12, 31);
 }
 
 describe('YearlyReportPage', () => {
@@ -163,7 +157,7 @@ describe('YearlyReportPage', () => {
     vi.useFakeTimers({
       toFake: ['Date']
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
   });
 
   afterEach(() => {
@@ -243,7 +237,7 @@ describe('YearlyReportPage', () => {
         description: 'Previous year'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyReportPage();
     await generateReport(user);
@@ -338,7 +332,7 @@ describe('YearlyReportPage', () => {
 
   it('uses existing valid cached rates when refresh fails', async () => {
     const user = setupUser();
-    setCachedExchangeRates(validRates);
+    seedEcbCache();
     mockFailedRatesFetch();
     addCostOnDate({
       month: 8,
@@ -416,12 +410,11 @@ describe('YearlyReportPage', () => {
     renderYearlyReportPage();
     await generateReport(user);
 
-    expect(
-      screen.getByText(
-        'Exchange rates are unavailable for converting this yearly report. Please try again.'
-      )
-    ).toBeInTheDocument();
-    expect(screen.queryByText('No-rate groceries')).not.toBeInTheDocument();
+    // No partial total and no invented rate; the original rows stay visible.
+    expect(screen.getByText('Total: Unavailable')).toBeInTheDocument();
+    expect(screen.getByText(/could not be converted/i)).toBeInTheDocument();
+    expect(screen.getByText('No-rate groceries')).toBeInTheDocument();
+    expect(screen.getByText('No-rate train')).toBeInTheDocument();
   });
 
   it('rejects invalid report years before requesting rates', async () => {
@@ -455,9 +448,17 @@ describe('YearlyReportPage', () => {
     const user = setupUser();
     let resolveFetch;
 
-    globalThis.fetch = vi.fn().mockImplementation(() => {
+    addCostOnDate({
+      month: 8,
+      day: 2,
+      cost: { sum: 50, currency: 'GBP', category: 'Travel', description: 'Loading train' }
+    });
+    setLocalDate(2026, 12, 31);
+    const ecbFetch = mockSuccessfulRatesFetch();
+
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       return new Promise((resolve) => {
-        resolveFetch = resolve;
+        resolveFetch = () => resolve(ecbFetch(url));
       });
     });
     renderYearlyReportPage();
@@ -468,13 +469,9 @@ describe('YearlyReportPage', () => {
 
     expect(loadingButton).toBeDisabled();
 
-    resolveFetch({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockResolvedValue(validRates)
-    });
+    resolveFetch();
 
-    expect(await screen.findByText('No costs found for this year.')).toBeInTheDocument();
+    expect(await screen.findByText('Total: 100.00 USD')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Generate Yearly Report' })
     ).toBeEnabled();
@@ -620,7 +617,7 @@ describe('YearlyReportPage', () => {
         description: 'Previous second'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyReportPage();
     await generateReport(user);

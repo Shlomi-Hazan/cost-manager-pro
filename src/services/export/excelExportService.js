@@ -183,7 +183,7 @@ function createValueCell(label, value) {
   return textCell(value, {
     backgroundColor: isEmphasized ? '#DBEAFE' : undefined,
     fontWeight: isEmphasized ? 'bold' : undefined,
-    wrap: label === 'Exchange rates' || label === 'Precision'
+    wrap: label === 'Exchange rates' || label === 'Precision' || label === 'Conversion'
   });
 }
 
@@ -225,7 +225,8 @@ function createDataCell(column, value) {
   }
 
   if (column === 'Total') {
-    return numericCell(value);
+    // "Unavailable" (a month or total that could not be converted) stays text.
+    return typeof value === 'number' ? numericCell(value) : textCell(value, { align: 'right' });
   }
 
   if (column === 'Share') {

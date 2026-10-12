@@ -1,4 +1,12 @@
 /*
+ * LEGACY (pre-M2B.2). These builders convert with the single flat demo-rate
+ * table and are NO LONGER USED by the application: reports and charts now
+ * come from historicalReportService.js (dated ECB rates). They are kept,
+ * with their tests, as the documented flat-rate behaviour of the course
+ * getReport() contract; a guard test makes sure no application module
+ * imports them again.
+ */
+/*
  * TEAM EXTENSION: our db.js's required getReport() returns each cost with
  * only { day } in its date, matching the official report-item example.
  * OQ-002 is resolved — the lecturer confirmed this { day }-only shape is

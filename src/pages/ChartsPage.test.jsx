@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { costsDatabaseName, costsDatabaseVersion } from '../lib/costsDatabase.js';
 import { getCostsStorageKey } from '../lib/db.js';
-import { setCachedExchangeRates } from '../lib/exchangeRatesCache.js';
+import { mockEcbFailure, mockEcbFetch, seedEcbCache } from '../../tests/helpers/ecb.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
 import * as excelExportService from '../services/export/excelExportService.js';
 import * as pdfExportService from '../services/export/pdfExportService.js';
@@ -20,13 +20,6 @@ import theme from '../theme.js';
  * only to avoid exercising real file generation in a UI test — their own
  * behavior is protected separately in tests/exports/.
  */
-const validRates = {
-  USD: 1,
-  GBP: 0.5,
-  EUR: 0.8,
-  ILS: 4
-};
-
 const originalFetch = globalThis.fetch;
 const originalResizeObserver = globalThis.ResizeObserver;
 
@@ -55,16 +48,14 @@ function setupUser() {
   return userEvent.setup();
 }
 
-function mockSuccessfulRatesFetch(rates = validRates) {
-  globalThis.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: vi.fn().mockResolvedValue(rates)
-  });
+// M2B.2: converted figures use dated ECB observations. These stand-ins keep
+// every test offline; the rates keep the ratios the old flat table had.
+function mockSuccessfulRatesFetch() {
+  return mockEcbFetch();
 }
 
 function mockFailedRatesFetch() {
-  globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Network error'));
+  return mockEcbFailure();
 }
 
 async function chooseMonth(user, monthName) {
@@ -410,7 +401,7 @@ describe('ChartsPage', () => {
 
   it('uses an existing valid rate cache when refresh fails', async () => {
     const user = setupUser();
-    setCachedExchangeRates(validRates);
+    seedEcbCache();
     mockFailedRatesFetch();
     addCostOnDate({
       day: 17,
@@ -491,12 +482,11 @@ describe('ChartsPage', () => {
     renderChartsPage();
     await generateChart(user);
 
-    expect(
-      screen.getByText(
-        'Exchange rates are unavailable for converting this chart. Please try again.'
-      )
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Food')).not.toBeInTheDocument();
+    // No partial pie that looks complete, and no invented rate.
+    expect(screen.getByText('Total unavailable')).toBeInTheDocument();
+    expect(screen.getByText(/category chart is unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Monthly category pie chart' })).not.toBeInTheDocument();
+    expect(screen.queryByText('No costs found for this month.')).not.toBeInTheDocument();
   });
 
   it('merges case variants into one visible category total', async () => {
@@ -585,9 +575,15 @@ describe('ChartsPage', () => {
     const user = setupUser();
     let resolveFetch;
 
-    globalThis.fetch = vi.fn().mockImplementation(() => {
+    addCostOnDate({
+      day: 12,
+      cost: { sum: 50, currency: 'GBP', category: 'FOOD', description: 'Loading train' }
+    });
+    const ecbFetch = mockSuccessfulRatesFetch();
+
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       return new Promise((resolve) => {
-        resolveFetch = resolve;
+        resolveFetch = () => resolve(ecbFetch(url));
       });
     });
     renderChartsPage();
@@ -598,13 +594,15 @@ describe('ChartsPage', () => {
 
     expect(loadingButton).toBeDisabled();
 
-    resolveFetch({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockResolvedValue(validRates)
-    });
+    resolveFetch();
 
-    expect(await screen.findByText('No costs found for this month.')).toBeInTheDocument();
+    await screen.findByRole('table', { name: 'Monthly category totals' });
+    expectCategoryTotal({
+      category: 'Food',
+      total: 100,
+      share: '100.0%',
+      currency: 'USD'
+    });
     expect(screen.getByRole('button', { name: 'Generate Chart' })).toBeEnabled();
   });
 });

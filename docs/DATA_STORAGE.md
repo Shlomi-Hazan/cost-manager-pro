@@ -16,8 +16,8 @@ or no data. Users should download backups.
 | `cost-manager-pro:costsdb:v2:costs:previous` | One "previous data" safety copy (§5) | Updated only after a replacement is written and verified |
 | `cost-manager-pro:costsdb:v2:costs:previous:pending` | The next safety copy, while a replacement is in progress (§5) | Normally removed at the end of the operation |
 | `cost-manager-pro:settings` | `{ exchangeRatesUrl? }` | No financial data |
-| `cost-manager-pro:exchange-rates-cache` | Last validated rates | Can always be fetched again |
-| `cost-manager-pro:fx:ecb:v1` | ECB historical rate cache (M2B.1) | **Dormant: nothing writes it yet.** Public data, rebuildable, not in backups, independent of expenses (ADR-049) |
+| `cost-manager-pro:exchange-rates-cache` | Last validated flat rates (legacy) | **Not used by reports since M2B.2.** Kept, not deleted; only Settings' Save & Test and the legacy `getReport()` use it |
+| `cost-manager-pro:fx:ecb:v1` | ECB historical rate cache (M2B.1) | Written by report generation (M2B.2) with only the ECB dates a report needs. Public data, rebuildable, not in backups, independent of expenses; a failure here never touches an expense (ADR-049, ADR-050). Expense documents hold no rate fields |
 
 Keys used by the original course app on the same origin are **never written
 by Cost Manager Pro**: `cost-manager:costsdb:v1:costs`,
