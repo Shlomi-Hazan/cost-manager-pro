@@ -3,7 +3,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setCachedExchangeRates } from '../../lib/exchangeRatesCache.js';
+import { mockEcbFailure, mockEcbFetch, seedEcbCache } from '../../../tests/helpers/ecb.js';
 import { costsDatabase } from '../../lib/costsDatabase.js';
 import * as excelExportService from '../../services/export/excelExportService.js';
 import * as pdfExportService from '../../services/export/pdfExportService.js';
@@ -19,13 +19,6 @@ import YearlyBarChartSection from './YearlyBarChartSection.jsx';
  * guarantee tests/charts/yearlyAggregation.test.js checks at the pure-
  * function level, verified here through the actual rendered component.
  */
-const validRates = {
-  USD: 1,
-  GBP: 0.5,
-  EUR: 0.8,
-  ILS: 4
-};
-
 const monthNames = [
   'January',
   'February',
@@ -69,16 +62,14 @@ function setupUser() {
   return userEvent.setup();
 }
 
-function mockSuccessfulRatesFetch(rates = validRates) {
-  globalThis.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: vi.fn().mockResolvedValue(rates)
-  });
+// M2B.2: converted figures use dated ECB observations. These stand-ins keep
+// every test offline; the rates keep the ratios the old flat table had.
+function mockSuccessfulRatesFetch() {
+  return mockEcbFetch();
 }
 
 function mockFailedRatesFetch() {
-  globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Network error'));
+  return mockEcbFailure();
 }
 
 function addCostOnDate({ year = 2026, month, day = 1, cost }) {
@@ -103,6 +94,13 @@ function getYearlyTotalRows() {
   return within(getYearlyTotalsTable()).getAllByRole('row').slice(1);
 }
 
+function expectUnavailableMonth(monthName) {
+  const table = getYearlyTotalsTable();
+  const row = within(table).getByRole('row', { name: new RegExp(monthName) });
+
+  expect(within(row).getByText('Unavailable')).toBeInTheDocument();
+}
+
 function expectMonthTotal(monthName, total, currency) {
   const table = getYearlyTotalsTable();
   const row = within(table).getByRole('row', { name: new RegExp(monthName) });
@@ -119,7 +117,7 @@ describe('YearlyBarChartSection', () => {
     vi.useFakeTimers({
       toFake: ['Date']
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
   });
 
   afterEach(() => {
@@ -175,7 +173,7 @@ describe('YearlyBarChartSection', () => {
         description: 'January groceries'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyBarChartSection();
     await generateYearlyChart(user);
@@ -258,7 +256,7 @@ describe('YearlyBarChartSection', () => {
         description: 'January groceries'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyBarChartSection();
     await generateYearlyChart(user);
@@ -301,7 +299,7 @@ describe('YearlyBarChartSection', () => {
         description: 'February train'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyBarChartSection();
     await generateYearlyChart(user);
@@ -328,7 +326,7 @@ describe('YearlyBarChartSection', () => {
 
   it('uses an existing valid rate cache when refresh fails', async () => {
     const user = setupUser();
-    setCachedExchangeRates(validRates);
+    seedEcbCache();
     mockFailedRatesFetch();
     addCostOnDate({
       month: 1,
@@ -348,7 +346,7 @@ describe('YearlyBarChartSection', () => {
         description: 'Cached train'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyBarChartSection();
     await generateYearlyChart(user);
@@ -369,7 +367,7 @@ describe('YearlyBarChartSection', () => {
         description: 'Same currency lunch'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyBarChartSection();
     await generateYearlyChart(user);
@@ -399,19 +397,17 @@ describe('YearlyBarChartSection', () => {
         description: 'No-rate train'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyBarChartSection();
     await generateYearlyChart(user);
 
-    expect(
-      screen.getByText(
-        'Exchange rates are unavailable for converting this yearly chart. Please try again.'
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('table', { name: 'Yearly monthly totals' })
-    ).not.toBeInTheDocument();
+    // Honest incomplete state: months that cannot be converted are marked,
+    // never drawn as zero, and nothing claims a complete year.
+    expect(screen.getByText('Total unavailable')).toBeInTheDocument();
+    expectMonthTotal('January', 100, 'USD');
+    expectUnavailableMonth('February');
+    expectMonthTotal('March', 0, 'USD');
   });
 
   it('rejects invalid years before requesting rates', async () => {
@@ -434,9 +430,16 @@ describe('YearlyBarChartSection', () => {
     const user = setupUser();
     let resolveFetch;
 
-    globalThis.fetch = vi.fn().mockImplementation(() => {
+    addCostOnDate({
+      month: 1,
+      cost: { sum: 100, currency: 'GBP', category: 'Food', description: 'Loading groceries' }
+    });
+    setLocalDate(2026, 12, 31);
+    const ecbFetch = mockSuccessfulRatesFetch();
+
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       return new Promise((resolve) => {
-        resolveFetch = resolve;
+        resolveFetch = () => resolve(ecbFetch(url));
       });
     });
     renderYearlyBarChartSection();
@@ -447,13 +450,10 @@ describe('YearlyBarChartSection', () => {
 
     expect(loadingButton).toBeDisabled();
 
-    resolveFetch({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockResolvedValue(validRates)
-    });
+    resolveFetch();
 
-    expect(await screen.findByText('No costs found for this year.')).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: 'Yearly monthly totals' })).toBeInTheDocument();
+    expectMonthTotal('January', 200, 'USD');
     expect(
       screen.getByRole('button', { name: 'Generate Yearly Chart' })
     ).toBeEnabled();
@@ -480,21 +480,16 @@ describe('YearlyBarChartSection', () => {
         description: 'August train'
       }
     });
-    setLocalDate(2026, 8, 22);
+    setLocalDate(2026, 12, 31);
 
     renderYearlyBarChartSection();
     await generateYearlyChart(user);
 
-    expect(
-      screen.getByText(
-        'Exchange rates are unavailable for converting this yearly chart. Please try again.'
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('img', { name: 'Yearly monthly bar chart' })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('table', { name: 'Yearly monthly totals' })
-    ).not.toBeInTheDocument();
+    // The convertible month is shown; the other is explicitly unavailable;
+    // there is no annual figure that pretends to be complete.
+    expect(screen.getByText('Total unavailable')).toBeInTheDocument();
+    expectMonthTotal('January', 100, 'USD');
+    expectUnavailableMonth('August');
+    expect(screen.queryByText(/Annual total/i)).not.toBeInTheDocument();
   });
 });

@@ -30,19 +30,14 @@ import {
 } from 'recharts';
 // Shared UI components, then local constants/db/services/utils below.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
-import RateDisclosureAlert from '../components/common/RateDisclosureAlert.jsx';
+import ConversionNotices from '../components/common/ConversionNotices.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import { supportedCurrencies } from '../constants/currencies.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
 // Exchange-rate cache/refresh and the required Pie Chart aggregation logic.
-import {
-  getCachedExchangeRates,
-  refreshExchangeRates
-} from '../services/exchangeRatesService.js';
-import { getRateDisclosureForCosts } from '../services/rateDisclosureService.js';
+import { generateMonthlyReport } from '../services/historicalReportService.js';
 import { compareAmounts, percentageOf } from '../lib/money/decimal.js';
-import { buildCategoryFinancials } from '../lib/money/financials.js';
 import { formatAmount } from '../lib/money/format.js';
 import YearlyBarChartSection from '../components/charts/YearlyBarChartSection.jsx';
 // TEAM EXTENSION: Excel/PDF export helpers for the Pie Chart data.
@@ -250,36 +245,20 @@ function ChartsPage() {
     setIsLoading(true);
 
     try {
-      try {
-        await refreshExchangeRates();
-      } catch {
-        // Same-currency charts and valid cached rates can still work after refresh failure.
-      }
+      // M2B.2: the pie uses the same dated ECB conversion as the monthly
+      // report (prepared asynchronously first, then calculated once).
+      const report = await generateMonthlyReport({
+        currency: filters.currency,
+        database: costsDatabase,
+        month: validation.chartMonth,
+        year: validation.chartYear
+      });
 
-      // Reuses the required getReport() to fetch the month's costs (rather
-      // than reading storage directly), then aggregates those rows by
-      // category client-side for the chart — see chartAggregation.js.
-      const report = costsDatabase.getReport(
-        filters.currency,
-        validation.chartYear,
-        validation.chartMonth
-      );
-      // M2A.2 (Policy B): exact category totals; rounded once when shown.
-      const financials = buildCategoryFinancials(
-        report.costs,
-        filters.currency,
-        getCachedExchangeRates()
-      );
-
-      // The disclosure is captured with the result so it always describes
-      // the rates this chart was actually computed with.
       setChartResult({
-        report,
-        financials,
-        rateDisclosure: getRateDisclosureForCosts(
-          report.costs,
-          report.total.currency
-        )
+        financials: report.breakdown,
+        incompleteNotice: report.incompleteNotice,
+        rateDisclosure: report.rateDisclosure,
+        report
       });
       setHasGenerated(true);
     } catch (error) {
@@ -296,6 +275,7 @@ function ChartsPage() {
     return buildPieChartExportModel({
       chartData,
       financials: chartResult.financials,
+      incompleteNotice: chartResult.incompleteNotice,
       rateDisclosure: chartResult.rateDisclosure,
       report: chartResult.report
     });
@@ -496,8 +476,11 @@ function ChartsPage() {
               </Typography>
             </Box>
 
-            {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
-            <RateDisclosureAlert disclosure={chartResult.rateDisclosure} />
+            {/* M2B.2: ECB provenance and the explicit incomplete notice. */}
+            <ConversionNotices
+              incompleteNotice={chartResult.incompleteNotice}
+              rateDisclosure={chartResult.rateDisclosure}
+            />
 
             {exportErrorMessage ? (
               <Alert severity="error">{exportErrorMessage}</Alert>
@@ -543,7 +526,12 @@ function ChartsPage() {
             </Stack>
 
             {/* Two distinct empty states before the actual pie chart. */}
-            {!hasChartData ? (
+            {chartResult.financials.status === 'unavailable' ? (
+              <Alert severity="warning">
+                The category chart is unavailable because some expenses could
+                not be converted. No partial chart is shown.
+              </Alert>
+            ) : !hasChartData ? (
               <Alert severity="info">No costs found for this month.</Alert>
             ) : !hasPositiveChartData ? (
               <Alert severity="info">

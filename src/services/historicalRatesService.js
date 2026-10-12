@@ -40,10 +40,24 @@ function getDefaultCache() {
   return defaultCache;
 }
 
+// Resolved at call time so the client never holds on to a stale fetch.
+function createDefaultClient(options = {}) {
+  return createEcbClient({ fetch: (...args) => globalThis.fetch(...args), ...options });
+}
+
 function getDefaultClient() {
-  defaultClient ??= createEcbClient();
+  defaultClient ??= createDefaultClient();
 
   return defaultClient;
+}
+
+/**
+ * Replaces the shared client (for example with no retries). Intended for
+ * tests; production code uses the defaults of the M2B.1 client.
+ * @param {object} [options] - createEcbClient options.
+ */
+export function resetDefaultClient(options = {}) {
+  defaultClient = createDefaultClient(options);
 }
 
 function maxIso(a, b) {

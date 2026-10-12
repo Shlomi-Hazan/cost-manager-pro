@@ -5,6 +5,7 @@ import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import {
   Alert,
+  AlertTitle,
   Box,
   Button,
   Stack,
@@ -13,12 +14,10 @@ import {
 } from '@mui/material';
 // Shared UI components, then the exchange-rate service/settings modules.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
-import RateDisclosureAlert from '../components/common/RateDisclosureAlert.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import DataManagementSection from '../components/settings/DataManagementSection.jsx';
 import { refreshExchangeRates } from '../services/exchangeRatesService.js';
-import { getRateDisclosure } from '../services/rateDisclosureService.js';
 import {
   defaultExchangeRatesUrl,
   clearCustomExchangeRatesUrl,
@@ -175,11 +174,15 @@ function SettingsPage() {
             </Typography>
           </Box>
 
-          {/* Pre-M2 hotfix: always says what the active source's rates are. */}
-          <RateDisclosureAlert
-            detail
-            disclosure={getRateDisclosure(settingsState.customUrl)}
-          />
+          {/* M2B.2: reports no longer use this source; say so plainly. */}
+          <Alert aria-label="Reports use ECB reference rates" role="note" severity="info">
+            <AlertTitle>Reports use ECB reference rates</AlertTitle>
+            Reports, charts, and exports convert each expense with the European
+            Central Bank (ECB) reference rate for its date, delivered through
+            the Frankfurter API. The source below is kept and can still be
+            tested, but it is not used for reports and is not verified as ECB
+            data.
+          </Alert>
 
           {feedback ? (
             <Alert severity={feedback.severity}>{feedback.message}</Alert>

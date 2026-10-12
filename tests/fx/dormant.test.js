@@ -12,9 +12,12 @@ import { clientResult, fixture, response } from './helpers.js';
 import { parseEcbObservations } from '../../src/lib/fx/ecbParser.js';
 
 /*
- * M2B.1 is DORMANT: nothing in the running application uses it, and it
- * changes no behaviour, request, storage write, or number. These tests are
- * the proof.
+ * M2B.1 built the FX infrastructure dormant. M2B.2 activates it through ONE
+ * integration module (src/services/historicalRatesService.js). These tests
+ * keep the boundaries: the infrastructure still imports nothing that stores
+ * or reports expenses, only the allowlisted module imports it, startup does
+ * nothing, and the legacy flat-rate path (db.getReport, Settings) is unchanged
+ * and never sees ECB data.
  */
 const root = process.cwd();
 
@@ -30,17 +33,17 @@ function sourceFiles(directory) {
   });
 }
 
-describe('nothing in the application imports the FX infrastructure', () => {
+describe('only the rate-preparation service imports the FX infrastructure', () => {
   const application = sourceFiles(join(root, 'src')).filter((file) => !relative(root, file).startsWith(join('src', 'lib', 'fx')));
 
   it('scans the whole application source (not an empty list)', () => {
     expect(application.length).toBeGreaterThan(50);
   });
 
-  it('has no import of src/lib/fx anywhere outside it, including startup and report paths', () => {
+  it('has exactly one importer outside it, and not startup', () => {
     const importers = application.filter((file) => /from\s+['"][^'"]*\/fx\/|from\s+['"][^'"]*\/fx['"]|import\(\s*['"][^'"]*\/fx\//.test(readFileSync(file, 'utf8')));
 
-    expect(importers.map((file) => relative(root, file))).toEqual([]);
+    expect(importers.map((file) => relative(root, file))).toEqual([join('src', 'services', 'historicalRatesService.js')]);
     expect(readFileSync(join(root, 'src/main.jsx'), 'utf8')).not.toMatch(/fx/i);
   });
 
@@ -108,7 +111,7 @@ describe('loading it has no side effects', () => {
   });
 });
 
-describe('the running application still uses the demonstration rates, unchanged', () => {
+describe('the legacy flat-rate path (getReport, Settings refresh) is unchanged and never sees ECB data', () => {
   const realFetch = globalThis.fetch;
   const expenses = JSON.stringify({
     schemaVersion: 2,

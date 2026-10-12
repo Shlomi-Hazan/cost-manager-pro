@@ -1,4 +1,5 @@
 // @vitest-environment node
+import process from 'node:process';
 import { describe, expect, it, vi } from 'vitest';
 import { FxError, fxErrorCodes } from '../../src/lib/fx/fxErrors.js';
 import { createFxCache } from '../../src/lib/fx/fxCache.js';
@@ -214,5 +215,24 @@ describe('reproducibility', () => {
 
     cache.recordObservations(clientResult({ observations: [{ date: '2026-08-07', quote: 'USD', rate: '9' }], quotes: ['USD'], from: '2026-08-07', to: '2026-08-07' }));
     expect(convertCosts(costs, converter).total).toBe('100');
+  });
+});
+
+describe('one canonical pathway', () => {
+  // exportModels keeps a rate-free fallback (no conversion) for callers that pass no financials; the pages always pass the canonical ones.
+  it('no application module uses the legacy flat-rate report builders or the flat rate cache for reporting', async () => {
+    const { readdirSync, readFileSync, statSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const files = (directory) =>
+      readdirSync(directory).flatMap((name) => {
+        const path = join(directory, name);
+
+        return statSync(path).isDirectory() ? files(path) : /\.(js|jsx)$/.test(name) && !/\.test\./.test(name) ? [path] : [];
+      });
+    const offenders = files(join(process.cwd(), 'src'))
+      .filter((file) => !/detailedReportsService\.js$|exchangeRatesService\.js$|exchangeRatesCache\.js$|rateDisclosureService\.js$|lib[\\/]db\.js$|SettingsPage\.jsx$|lib[\\/]money[\\/](financials|money)\.js$|utils[\\/]chartAggregation\.js$|export[\\/]exportModels\.js$/.test(file))
+      .filter((file) => /detailedReportsService|getCachedExchangeRates|refreshExchangeRates|buildYearlyFinancials|buildCategoryFinancials|sumCostsExact/.test(readFileSync(file, 'utf8')));
+
+    expect(offenders).toEqual([]);
   });
 });

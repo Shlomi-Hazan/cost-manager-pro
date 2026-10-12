@@ -14,16 +14,14 @@ import {
 } from '@mui/material';
 // Shared UI components, then the required report/currency/db modules.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
-import RateDisclosureAlert from '../components/common/RateDisclosureAlert.jsx';
+import ConversionNotices from '../components/common/ConversionNotices.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import SortableReportTable from '../components/reports/SortableReportTable.jsx';
 import { supportedCurrencies } from '../constants/currencies.js';
 import { useReportSorting } from '../hooks/useReportSorting.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
-import { buildDetailedYearlyReport } from '../services/detailedReportsService.js';
-import { refreshExchangeRates } from '../services/exchangeRatesService.js';
-import { getRateDisclosureForCosts } from '../services/rateDisclosureService.js';
+import { generateYearlyReport } from '../services/historicalReportService.js';
 // TEAM EXTENSION: Excel/PDF export helpers for this yearly report.
 import * as excelExportService from '../services/export/excelExportService.js';
 import {
@@ -101,8 +99,6 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
   const [filters, setFilters] = useState(getCurrentFilters);
   const [errors, setErrors] = useState({});
   const [report, setReport] = useState(null);
-  // Which rates the generated report's converted total used (null when no conversion happened).
-  const [rateDisclosure, setRateDisclosure] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [exportErrorMessage, setExportErrorMessage] = useState('');
   const [exportingAction, setExportingAction] = useState(null);
@@ -133,7 +129,6 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
     setErrorMessage('');
     setExportErrorMessage('');
     setReport(null);
-    setRateDisclosure(null);
     setHasGenerated(false);
     resetSort();
   }
@@ -148,7 +143,6 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
     setErrorMessage('');
     setExportErrorMessage('');
     setReport(null);
-    setRateDisclosure(null);
     setHasGenerated(false);
 
     if (!validation.isValid) {
@@ -159,24 +153,15 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
     setIsLoading(true);
 
     try {
-      // Refreshing rates here keeps the cache warm; a same-currency report
-      // can still succeed below even if this fails.
-      try {
-        await refreshExchangeRates();
-      } catch {
-        // Same-currency yearly reports and valid cached rates can still work.
-      }
-
-      const nextReport = buildDetailedYearlyReport(
-        costsDatabase,
-        filters.currency,
-        validation.reportYear
-      );
+      // M2B.2: dated ECB rates are prepared first, then the report is
+      // calculated from one conversion shared with the charts and exports.
+      const nextReport = await generateYearlyReport({
+        currency: filters.currency,
+        database: costsDatabase,
+        year: validation.reportYear
+      });
 
       setReport(nextReport);
-      setRateDisclosure(
-        getRateDisclosureForCosts(nextReport.costs, nextReport.total.currency)
-      );
       setHasGenerated(true);
     } catch (error) {
       // A failed generation clears any previous result rather than leaving
@@ -191,7 +176,8 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
   function buildCurrentExportModel() {
     return buildYearlyReportExportModel({
       costs: sortedCosts,
-      rateDisclosure,
+      incompleteNotice: report.incompleteNotice,
+      rateDisclosure: report.rateDisclosure,
       report,
       totalAmount: report.totalAmount
     });
@@ -344,13 +330,17 @@ function YearlyReportPage({ headingComponent = 'h1' }) {
                 Report currency: {report.total.currency}
               </Typography>
               <Typography fontWeight={700} variant="body1">
-                Total: {formatAmount(report.totalAmount, report.total.currency)}{' '}
-                {report.total.currency}
+                {report.totalAmount === null
+                  ? 'Total: Unavailable'
+                  : `Total: ${formatAmount(report.totalAmount, report.total.currency)} ${report.total.currency}`}
               </Typography>
             </Box>
 
             {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
-            <RateDisclosureAlert disclosure={rateDisclosure} />
+            <ConversionNotices
+              incompleteNotice={report.incompleteNotice}
+              rateDisclosure={report.rateDisclosure}
+            />
 
             {exportErrorMessage ? (
               <Alert severity="error">{exportErrorMessage}</Alert>

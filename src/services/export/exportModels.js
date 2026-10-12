@@ -50,7 +50,7 @@ function formatPdfCell(key, value, row) {
   }
 
   if (key === 'total') {
-    return formatAmount(String(value), row.currency);
+    return typeof value === 'string' && value === unavailableText ? value : formatAmount(String(value), row.currency);
   }
 
   if (key === 'percentage') {
@@ -69,28 +69,50 @@ function formatPdfCell(key, value, row) {
  * stored values, never rounded. Callers that have the exact canonical amount
  * pass it; otherwise the Number given is used as the exact value.
  */
+export const unavailableText = 'Unavailable';
+
+// M2B.2: a total that could not be computed (some expenses were not
+// convertible) is written as the word, never as a number such as 0.
 function roundedTotal(exactAmount, currency) {
-  return Number(roundForCurrency(exactAmount, currency));
+  return exactAmount === null ? unavailableText : Number(roundForCurrency(exactAmount, currency));
 }
 
 function totalLabel(exactAmount, currency) {
-  return `${formatAmount(exactAmount, currency)} ${currency}`;
+  return exactAmount === null ? unavailableText : `${formatAmount(exactAmount, currency)} ${currency}`;
 }
 
-// Pre-M2 hotfix: when a figure in an export depends on converted amounts,
-// the model carries the exchange-rate disclosure as one extra summary row
-// (and as metadata for the PDF). Existing rows, columns, and numeric values
-// are not touched; with no disclosure the model is returned unchanged.
-function withRateDisclosure(model, rateDisclosure) {
-  if (!rateDisclosure) {
+// When a figure depends on converted amounts, the model carries how it was
+// converted: the ECB provenance (M2B.2) as an "Exchange rates" row, and, when
+// some expenses could not be converted, an explicit "Conversion" row. Existing
+// rows, columns and numeric values are untouched; with neither, the model is
+// returned unchanged.
+function withConversionNotes(model, { rateDisclosure, incompleteNotice }) {
+  if (!rateDisclosure && !incompleteNotice) {
     return model;
   }
 
-  return {
-    ...model,
-    summary: [...model.summary, ['Exchange rates', rateDisclosure.exportNote]],
-    metadata: { ...model.metadata, rateDisclosure: rateDisclosure.exportNote }
-  };
+  const summary = [...model.summary];
+  const metadata = { ...model.metadata };
+
+  if (rateDisclosure) {
+    summary.push(['Exchange rates', rateDisclosure.exportNote]);
+    metadata.rateDisclosure = rateDisclosure.exportNote;
+
+    if (rateDisclosure.observation) {
+      metadata.observationFirstDate = rateDisclosure.observation.firstDate;
+      metadata.observationLastDate = rateDisclosure.observation.lastDate;
+      metadata.provisionalRates = rateDisclosure.observation.provisional;
+    }
+  }
+
+  if (incompleteNotice) {
+    summary.push(['Conversion', incompleteNotice.exportNote]);
+    metadata.conversionStatus = 'incomplete';
+    metadata.unavailableCount = incompleteNotice.count;
+    metadata.incompleteNote = incompleteNotice.exportNote;
+  }
+
+  return { ...model, summary, metadata };
 }
 
 // Reshapes a Monthly Report + its raw costs into the generic { rows,
@@ -178,6 +200,7 @@ function createPieChartExportModel({ report, chartData, financials }) {
       currency,
       null
     );
+  const unavailable = canonical.status === 'unavailable';
   const rows = canonical.entries.map((entry) => ({
     category: entry.category,
     total: roundedTotal(entry.amount, currency),
@@ -186,7 +209,7 @@ function createPieChartExportModel({ report, chartData, financials }) {
     percentage: Number(percentageToRatio(entry.percentageText)),
     currency
   }));
-  const total = roundedTotal(canonical.totalAmount, currency);
+  const total = roundedTotal(unavailable ? null : canonical.totalAmount, currency);
 
   return {
     type: 'pie-chart',
@@ -206,7 +229,7 @@ function createPieChartExportModel({ report, chartData, financials }) {
       year: report.year,
       currency: report.total.currency,
       total,
-      totalLabel: totalLabel(canonical.totalAmount, currency)
+      totalLabel: totalLabel(unavailable ? null : canonical.totalAmount, currency)
     },
     columns: ['Category', 'Total', 'Share', 'Currency'],
     rows
@@ -217,16 +240,18 @@ function createPieChartExportModel({ report, chartData, financials }) {
 function createBarChartExportModel({ yearlyResult }) {
   const rows = yearlyResult.monthlyTotals.map((entry) => ({
     month: entry.label,
-    total: roundedTotal(entry.amount ?? entry.total, entry.currency),
+    total: roundedTotal(entry.amount === undefined ? entry.total : entry.amount, entry.currency),
     currency: entry.currency
   }));
-  // The annual total is the exact sum of the exact monthly amounts.
+  // The annual total is the exact sum of the exact monthly amounts, and is
+  // unavailable (null) when any month could not be converted.
   const annualAmount =
-    yearlyResult.totalAmount ??
-    sumAmounts(yearlyResult.monthlyTotals.map((entry) => entry.amount ?? entry.total));
+    yearlyResult.totalAmount !== undefined
+      ? yearlyResult.totalAmount
+      : sumAmounts(yearlyResult.monthlyTotals.map((entry) => entry.amount ?? entry.total));
   const annualTotal = roundedTotal(annualAmount, yearlyResult.currency);
   const monthsWithCosts = yearlyResult.monthlyTotals.filter(
-    (entry) => compareAmounts(entry.amount ?? entry.total, '0') > 0
+    (entry) => (entry.amount ?? entry.total) !== null && compareAmounts(entry.amount ?? entry.total, '0') > 0
   ).length;
 
   return {
@@ -253,22 +278,23 @@ function createBarChartExportModel({ yearlyResult }) {
   };
 }
 
-// Public builders: `rateDisclosure` (from rateDisclosureService.js) is
-// optional and only passed when the report or chart used converted amounts.
-export function buildMonthlyReportExportModel({ rateDisclosure = null, ...input }) {
-  return withRateDisclosure(createMonthlyReportExportModel(input), rateDisclosure);
+// Public builders: `rateDisclosure` and `incompleteNotice` (from
+// conversionDisclosure.js) are optional. They are the SAME objects the screen
+// showed, so the file states exactly what the screen did.
+export function buildMonthlyReportExportModel({ rateDisclosure = null, incompleteNotice = null, ...input }) {
+  return withConversionNotes(createMonthlyReportExportModel(input), { rateDisclosure, incompleteNotice });
 }
 
-export function buildYearlyReportExportModel({ rateDisclosure = null, ...input }) {
-  return withRateDisclosure(createYearlyReportExportModel(input), rateDisclosure);
+export function buildYearlyReportExportModel({ rateDisclosure = null, incompleteNotice = null, ...input }) {
+  return withConversionNotes(createYearlyReportExportModel(input), { rateDisclosure, incompleteNotice });
 }
 
-export function buildPieChartExportModel({ rateDisclosure = null, ...input }) {
-  return withRateDisclosure(createPieChartExportModel(input), rateDisclosure);
+export function buildPieChartExportModel({ rateDisclosure = null, incompleteNotice = null, ...input }) {
+  return withConversionNotes(createPieChartExportModel(input), { rateDisclosure, incompleteNotice });
 }
 
-export function buildBarChartExportModel({ rateDisclosure = null, ...input }) {
-  return withRateDisclosure(createBarChartExportModel(input), rateDisclosure);
+export function buildBarChartExportModel({ rateDisclosure = null, incompleteNotice = null, ...input }) {
+  return withConversionNotes(createBarChartExportModel(input), { rateDisclosure, incompleteNotice });
 }
 
 export function getModelRowsForPdf(model) {

@@ -54,9 +54,10 @@ function addMetadata(doc, lines, startY = 94) {
 // Pre-M2 hotfix: a report or chart that used converted amounts says so in
 // the file itself, so it is not misleading when read apart from the app.
 function getRateDisclosureLines(model) {
-  return model.metadata.rateDisclosure
-    ? [`Exchange rates: ${model.metadata.rateDisclosure}`]
-    : [];
+  return [
+    ...(model.metadata.rateDisclosure ? [`Exchange rates: ${model.metadata.rateDisclosure}`] : []),
+    ...(model.metadata.incompleteNote ? [`Conversion: ${model.metadata.incompleteNote}`] : [])
+  ];
 }
 
 // jsPDF's own output() call, isolated so callers don't need to know the

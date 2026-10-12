@@ -14,16 +14,14 @@ import {
 } from '@mui/material';
 // Shared UI components, then the required report/currency/db modules.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
-import RateDisclosureAlert from '../components/common/RateDisclosureAlert.jsx';
+import ConversionNotices from '../components/common/ConversionNotices.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import SortableReportTable from '../components/reports/SortableReportTable.jsx';
 import { supportedCurrencies } from '../constants/currencies.js';
 import { useReportSorting } from '../hooks/useReportSorting.js';
 import { costsDatabase } from '../lib/costsDatabase.js';
-import { buildDetailedMonthlyReport } from '../services/detailedReportsService.js';
-import { refreshExchangeRates } from '../services/exchangeRatesService.js';
-import { getRateDisclosureForCosts } from '../services/rateDisclosureService.js';
+import { generateMonthlyReport } from '../services/historicalReportService.js';
 // TEAM EXTENSION: Excel/PDF export helpers for this monthly report.
 import * as excelExportService from '../services/export/excelExportService.js';
 import {
@@ -140,8 +138,6 @@ function MonthlyReportPage({ headingComponent = 'h1' }) {
   const [filters, setFilters] = useState(getCurrentFilters);
   const [errors, setErrors] = useState({});
   const [report, setReport] = useState(null);
-  // Which rates the generated report's converted total used (null when no conversion happened).
-  const [rateDisclosure, setRateDisclosure] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [exportErrorMessage, setExportErrorMessage] = useState('');
   const [exportingAction, setExportingAction] = useState(null);
@@ -171,7 +167,6 @@ function MonthlyReportPage({ headingComponent = 'h1' }) {
     setErrorMessage('');
     setExportErrorMessage('');
     setReport(null);
-    setRateDisclosure(null);
     setHasGenerated(false);
     resetSort();
   }
@@ -186,7 +181,6 @@ function MonthlyReportPage({ headingComponent = 'h1' }) {
     setErrorMessage('');
     setExportErrorMessage('');
     setReport(null);
-    setRateDisclosure(null);
     setHasGenerated(false);
 
     if (!validation.isValid) {
@@ -197,30 +191,17 @@ function MonthlyReportPage({ headingComponent = 'h1' }) {
     setIsLoading(true);
 
     try {
-      // Opportunistically refresh rates before generating the report so a
-      // cross-currency total uses the freshest cache available. A failed
-      // refresh is swallowed here rather than shown as a report error: an
-      // older cached rate (or a same-currency report needing no rates at
-      // all) can still legitimately succeed below.
-      try {
-        await refreshExchangeRates();
-      } catch {
-        // A failed refresh should not block same-currency reports or valid cached rates.
-      }
-
-      // Delegates to db.js's getReport() (see detailedReportsService.js);
-      // this component never reads/filters localStorage itself.
-      const nextReport = buildDetailedMonthlyReport(
-        costsDatabase,
-        filters.currency,
-        validation.reportYear,
-        validation.reportMonth
-      );
+      // M2B.2: rates are prepared (ECB cache, fetching only what is missing)
+      // BEFORE the synchronous calculation; the figures come from one
+      // conversion that the charts and exports share.
+      const nextReport = await generateMonthlyReport({
+        currency: filters.currency,
+        database: costsDatabase,
+        month: validation.reportMonth,
+        year: validation.reportYear
+      });
 
       setReport(nextReport);
-      setRateDisclosure(
-        getRateDisclosureForCosts(nextReport.costs, nextReport.total.currency)
-      );
       setHasGenerated(true);
     } catch (error) {
       // A failed generation clears any previous result rather than leaving
@@ -237,7 +218,8 @@ function MonthlyReportPage({ headingComponent = 'h1' }) {
   function buildCurrentExportModel() {
     return buildMonthlyReportExportModel({
       costs: sortedCosts,
-      rateDisclosure,
+      incompleteNotice: report.incompleteNotice,
+      rateDisclosure: report.rateDisclosure,
       report,
       totalAmount: report.totalAmount
     });
@@ -409,13 +391,17 @@ function MonthlyReportPage({ headingComponent = 'h1' }) {
                 Report currency: {report.total.currency}
               </Typography>
               <Typography fontWeight={700} variant="body1">
-                Total: {formatAmount(report.totalAmount, report.total.currency)}{' '}
-                {report.total.currency}
+                {report.totalAmount === null
+                  ? 'Total: Unavailable'
+                  : `Total: ${formatAmount(report.totalAmount, report.total.currency)} ${report.total.currency}`}
               </Typography>
             </Box>
 
-            {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
-            <RateDisclosureAlert disclosure={rateDisclosure} />
+            {/* M2B.2: ECB provenance and the explicit incomplete-total notice. */}
+            <ConversionNotices
+              incompleteNotice={report.incompleteNotice}
+              rateDisclosure={report.rateDisclosure}
+            />
 
             {exportErrorMessage ? (
               <Alert severity="error">{exportErrorMessage}</Alert>

@@ -32,18 +32,13 @@ import {
 } from 'recharts';
 // Shared UI components, then local constants/db/services/utils below.
 import LoadingButtonLabel from '../common/LoadingButtonLabel.jsx';
-import RateDisclosureAlert from '../common/RateDisclosureAlert.jsx';
+import ConversionNotices from '../common/ConversionNotices.jsx';
 import SectionCard from '../common/SectionCard.jsx';
 import { supportedCurrencies } from '../../constants/currencies.js';
 import { costsDatabase } from '../../lib/costsDatabase.js';
 import { compareAmounts } from '../../lib/money/decimal.js';
-import { buildYearlyFinancials } from '../../lib/money/financials.js';
 import { formatAmount } from '../../lib/money/format.js';
-import {
-  getCachedExchangeRates,
-  refreshExchangeRates
-} from '../../services/exchangeRatesService.js';
-import { getRateDisclosureForCosts } from '../../services/rateDisclosureService.js';
+import { generateYearlyReport } from '../../services/historicalReportService.js';
 // TEAM EXTENSION: Excel/PDF export helpers for the yearly bar chart data.
 import * as excelExportService from '../../services/export/excelExportService.js';
 import { buildBarChartExportModel } from '../../services/export/exportModels.js';
@@ -162,37 +157,22 @@ function YearlyBarChartSection() {
     setIsLoading(true);
 
     try {
-      // Refreshing rates here keeps the cache warm; a same-currency chart
-      // can still succeed below even if this fails.
-      try {
-        await refreshExchangeRates();
-      } catch {
-        // Same-currency yearly charts and valid cached rates can still work.
-      }
-
-      // buildYearlyMonthlyTotals() calls the required getReport() once per
-      // calendar month, guaranteeing exactly 12 entries — see
-      // yearlyAggregation.js for why empty months still return a valid
-      // zero-total report rather than being skipped.
-      // M2A.2 (Policy B): each month is the exact sum of its costs and the
-      // yearly total is the exact sum of the exact months.
-      const financials = buildYearlyFinancials(
-        (currency, year, month) => costsDatabase.getReport(currency, year, month),
-        filters.currency,
-        validation.chartYear,
-        getCachedExchangeRates()
-      );
-
-      // Rates are only used if some cost of this year is in another currency.
-      const yearCosts = costsDatabase
-        .getAllCosts()
-        .filter((cost) => cost.date.year === validation.chartYear);
+      // M2B.2: the same dated ECB conversion as the yearly report. Twelve
+      // months always come back; a month that cannot be converted is marked
+      // incomplete (no amount) rather than drawn as a zero.
+      const yearly = await generateYearlyReport({
+        currency: filters.currency,
+        database: costsDatabase,
+        year: validation.chartYear
+      });
 
       setYearlyResult({
+        complete: yearly.complete,
         currency: filters.currency,
-        monthlyTotals: financials.months,
-        totalAmount: financials.totalAmount,
-        rateDisclosure: getRateDisclosureForCosts(yearCosts, filters.currency),
+        incompleteNotice: yearly.incompleteNotice,
+        monthlyTotals: yearly.months,
+        rateDisclosure: yearly.rateDisclosure,
+        totalAmount: yearly.totalAmount,
         year: validation.chartYear
       });
       setHasGenerated(true);
@@ -210,6 +190,7 @@ function YearlyBarChartSection() {
   // Shared shape for both export functions below.
   function buildCurrentExportModel() {
     return buildBarChartExportModel({
+      incompleteNotice: yearlyResult.incompleteNotice,
       rateDisclosure: yearlyResult.rateDisclosure,
       yearlyResult
     });
@@ -278,7 +259,7 @@ function YearlyBarChartSection() {
   // Derived from state rather than stored separately, so they can never
   // drift out of sync with the last generated yearlyResult.
   const monthlyTotals = yearlyResult?.monthlyTotals ?? [];
-  const hasYearlyCosts = monthlyTotals.some((entry) => compareAmounts(entry.amount, '0') > 0);
+  const hasYearlyCosts = monthlyTotals.some((entry) => entry.amount !== null && compareAmounts(entry.amount, '0') > 0);
 
   return (
     <Stack spacing={3}>
@@ -381,8 +362,11 @@ function YearlyBarChartSection() {
               </Typography>
             </Box>
 
-            {/* Pre-M2 hotfix: says which kind of rates the converted total uses. */}
-            <RateDisclosureAlert disclosure={yearlyResult.rateDisclosure} />
+            {/* M2B.2: ECB provenance and the explicit incomplete notice. */}
+            <ConversionNotices
+              incompleteNotice={yearlyResult.incompleteNotice}
+              rateDisclosure={yearlyResult.rateDisclosure}
+            />
 
             {exportErrorMessage ? (
               <Alert severity="error">{exportErrorMessage}</Alert>
@@ -427,7 +411,7 @@ function YearlyBarChartSection() {
               </Button>
             </Stack>
 
-            {!hasYearlyCosts ? (
+            {!hasYearlyCosts && yearlyResult.complete ? (
               <Alert severity="info">No costs found for this year.</Alert>
             ) : null}
 
@@ -502,7 +486,9 @@ function YearlyBarChartSection() {
                     <TableRow key={entry.month}>
                       <TableCell>{entry.label}</TableCell>
                       <TableCell align="right">
-                        {formatAmount(entry.amount, entry.currency)}
+                        {entry.amount === null
+                          ? 'Unavailable'
+                          : formatAmount(entry.amount, entry.currency)}
                       </TableCell>
                       <TableCell>{entry.currency}</TableCell>
                     </TableRow>

@@ -19,7 +19,7 @@ function RateDisclosureAlert({ detail = false, disclosure, sx }) {
       aria-label={disclosure.title}
       data-rate-source={disclosure.kind}
       role="note"
-      severity="warning"
+      severity={disclosure.kind === 'ecb' ? 'info' : 'warning'}
       sx={sx}
     >
       <AlertTitle>{disclosure.title}</AlertTitle>
