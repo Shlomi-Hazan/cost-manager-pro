@@ -14,15 +14,21 @@
  *    source text (`context.source`, a standard JSON.parse feature). The token
  *    itself becomes the rate, so no digit is lost to a double, with no
  *    dependency and no regular expression over the serialized JSON.
- *  - Number-boundary mode (fallback, for engines without `context.source`):
- *    the parsed Number is accepted only if its shortest decimal form has at
- *    most 15 significant digits and no exponent. LIMIT: in this mode a token
- *    with more digits than a double holds cannot be detected, because the
- *    digits are already gone when the Number is built. The result reports
- *    which mode was used (`precisionMode`).
- * In both modes a rate with more than 15 significant digits or an exponent
- * is rejected as `unsupported-precision` rather than silently accepted.
- * Every ECB rate seen so far has at most 5 significant digits.
+ *  - Number-boundary mode (fallback, for engines without `context.source`,
+ *    i.e. before Chrome 114, Firefox 135, Safari 18.4, Node 21): the parsed
+ *    Number is accepted only if its shortest decimal form has at most 15
+ *    significant digits and no exponent. A Number cannot reveal digits it has
+ *    already dropped, so this mode FAILS CLOSED with a guard: the response
+ *    text is scanned and the whole answer is rejected (`unsupported-precision`)
+ *    if ANY number in it has more than 15 significant digits. The scan is only
+ *    a guard, never used to extract a value, and it is deliberately
+ *    conservative (it would also reject a long digit string that is not a
+ *    rate; a genuine ECB response contains none). The result reports which
+ *    mode was used (`precisionMode`).
+ * Guarantees: with at most 15 significant digits a rate is exactly the
+ * provider's decimal in both modes; with more, both modes reject the answer
+ * instead of keeping an altered value. Every ECB rate seen so far has at most
+ * 5 significant digits, so real responses parse in both modes.
  */
 import { supportedCurrencies } from '../../constants/currencies.js';
 import { isRealCalendarDate } from '../costValidation.js';
@@ -156,6 +162,28 @@ function readRate(raw, index, precisionMode) {
   return normalizeAmount(text);
 }
 
+// Fail-closed guard for the Number-boundary mode (see PRECISION POLICY): a
+// number with more significant digits than a double holds would otherwise be
+// rounded silently when parsed, so the answer is refused instead.
+function assertNoOverPrecisionNumber(text) {
+  for (const match of text.matchAll(/\d[\d.]*/g)) {
+    // Counted like the exact mode counts: trailing zeros carry no information.
+    let digits;
+
+    try {
+      digits = significantDigits(normalizeAmount(match[0]));
+    } catch {
+      digits = significantDigits(match[0]);
+    }
+
+    if (digits > maxRateSignificantDigits) {
+      throw new FxError(codes.unsupportedPrecision, 'The provider response contains a number with more digits than supported.', {
+        details: { token: match[0].slice(0, 40), precisionMode: 'number-boundary' }
+      });
+    }
+  }
+}
+
 /**
  * Validates an already-parsed observation array.
  * @param {unknown} root - Parsed JSON.
@@ -282,6 +310,10 @@ export function parseEcbObservations(text, options) {
       : JSON.parse(text);
   } catch (error) {
     throw new FxError(codes.invalidJson, 'The provider response is not valid JSON.', { cause: error });
+  }
+
+  if (!exact) {
+    assertNoOverPrecisionNumber(text);
   }
 
   return validateEcbObservations(root, options, exact ? 'exact-token' : 'number-boundary');

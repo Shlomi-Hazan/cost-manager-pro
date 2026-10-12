@@ -178,6 +178,32 @@ describe('finality comes from observed data, not from the clock', () => {
   });
 });
 
+describe('finality needs a later observation common to every currency of the conversion', () => {
+  // ILS sorts before USD, so the code scans ILS dates first: the later
+  // observation must exist for ILS but NOT for USD to test the "common" rule.
+  const tableWithLaterIlsOnly = () => synthetic(septemberToOctober(), [{ date: '2026-10-12', quote: 'ILS', rate: '3.41' }], {
+    kind: 'latest',
+    quotes: ['ILS'],
+    fetchedAt: '2026-10-12T15:30:00.000Z'
+  });
+
+  it('a later observation for only the first currency does not make an ILS/USD conversion final', () => {
+    const result = select(tableWithLaterIlsOnly(), '2026-10-10', ['ILS', 'USD']);
+
+    expect(result).toMatchObject({ status: 'available', selectedDate: '2026-10-09', finality: 'provisional', mayBeSuperseded: true });
+  });
+
+  it('the same later observation does make an ILS-only conversion final', () => {
+    expect(select(tableWithLaterIlsOnly(), '2026-10-10', ['EUR', 'ILS'])).toMatchObject({ selectedDate: '2026-10-09', finality: 'final' });
+  });
+
+  it('is symmetric: a later observation for only the second currency does not help either', () => {
+    const table = synthetic(septemberToOctober(), [{ date: '2026-10-12', quote: 'USD', rate: '1.12' }], { kind: 'latest', quotes: ['USD'], fetchedAt: '2026-10-12T15:30:00.000Z' });
+
+    expect(select(table, '2026-10-10', ['ILS', 'USD']).finality).toBe('provisional');
+  });
+});
+
 describe('future dates', () => {
   it('is unavailable after the caller\'s today, even when coverage reaches it', () => {
     const result = select(septemberToOctober(), '2026-10-13', ['EUR', 'USD'], '2026-10-12');

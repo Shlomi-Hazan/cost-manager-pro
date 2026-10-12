@@ -297,7 +297,9 @@ export function createFxCache(options = {}) {
 
     /**
      * Selects the observation set for one expense (see observationSelection).
-     * Synchronous: it only reads the local table.
+     * Synchronous: it only reads the local table. It re-validates the whole
+     * stored table on every call (about 50 ms for a full 26-year history), so
+     * for many expenses use createIndex() once instead.
      */
     select(args) {
       return selectObservationSet({ table: inspect().table, ...args });

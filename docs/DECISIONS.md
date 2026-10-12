@@ -2015,14 +2015,28 @@ Approved by the product owner after the M2B pre-implementation review:
 Rates are exact decimal **strings**. Primary mode: `JSON.parse`'s reviver
 receives each number's source text (`context.source`), so every token is kept
 exactly, with no dependency and no regular expression over the serialized JSON.
-Fallback (engines without `context.source`): the parsed Number is accepted only
-if it has at most 15 significant digits and no exponent. **Limit of the
-fallback:** a token with more digits than a double holds cannot be detected,
-because the digits are gone once the Number exists; the result reports which
-mode was used. Both modes reject more than 15 significant digits, exponents,
-zero and negative rates, and unsupported formats. All 768 rates in a real year
-have at most 5 significant digits and round-trip exactly. Browser support for
-`context.source` was **not verified** in this milestone.
+`context.source` is a standard-track feature (TC39 JSON.parse source text
+access) that MDN's browser-compat data lists from **Chrome 114, Firefox 135,
+Safari 18.4** (Edge, Opera and the mobile browsers mirror these), Node 21 and
+Deno 1.33. Older engines use the **fallback**: the parsed Number is accepted
+only if it has at most 15 significant digits and no exponent. A Number cannot
+reveal digits it has already dropped, so the fallback **fails closed**: before
+validating, it scans the response text and rejects the whole answer
+(`unsupported-precision`) if any number in it has more than 15 significant
+digits (trailing zeros do not count). The scan is only a guard, never used to
+extract a value, and is conservative (it would also reject a long digit string
+that is not a rate; a genuine ECB response contains none). An earlier version
+of the fallback silently accepted `1.12060000000000001` as `1.1206`; that gap
+was found and closed in the M2B.1 final verification.
+
+**Guarantees, both modes:** with at most 15 significant digits a rate is
+exactly the provider's decimal; with more, the answer is rejected rather than
+kept altered; zero, negative, exponent and non-decimal rates are rejected.
+All 768 rates in a real year have at most 5 significant digits, so real ECB
+responses parse in both modes. Practical use: `select()` on the cache
+re-validates the whole stored table (about 50 ms for a full 26-year history), so
+M2B.2 must build **one index per report** with `createIndex()` (about 43 ms
+once, then about 6 microseconds per lookup), not call `select()` per expense.
 
 ## Observation model and coverage
 

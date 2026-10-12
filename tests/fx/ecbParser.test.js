@@ -196,22 +196,39 @@ describe('rates and precision', () => {
       });
     });
 
-    it('rejects 16 or more significant digits in both modes instead of claiming they were kept', () => {
+    it('rejects 16 or more significant digits in BOTH modes instead of claiming they were kept', () => {
       [true, false].forEach((useSourceText) => {
-        expect(code(() => parseEcbObservations(at('1.123456789012345'), { quotes: ['USD'], useSourceText }))).toBe('unsupported-precision');
-        expect(code(() => parseEcbObservations(at('1.12060000000000001'), { quotes: ['USD'], useSourceText }))).toBe(
-          useSourceText ? 'unsupported-precision' : 'ok'
-        );
+        ['1.123456789012345', '1.12060000000000001', '1.1206000000000000000001', '12345678.90123456', '0.0000123456789012345678'].forEach((token) => {
+          expect(code(() => parseEcbObservations(at(token), { quotes: ['USD'], useSourceText }))).toBe('unsupported-precision');
+        });
       });
     });
 
-    it('documents the limit: without source text, digits beyond a double cannot be seen', () => {
-      // The number-boundary mode cannot tell 1.12060000000000001 from 1.1206:
-      // the extra digits are already gone when the Number is built.
-      const lossy = parseEcbObservations(at('1.12060000000000001'), { quotes: ['USD'], useSourceText: false });
+    it('the fallback fails closed: it can no longer silently turn a long token into a shorter rate', () => {
+      // Before the guard, this was accepted as 1.1206 in the fallback mode
+      // (the extra digits are already lost when the Number is built).
+      const error = (() => {
+        try {
+          parseEcbObservations(at('1.12060000000000001'), { quotes: ['USD'], useSourceText: false });
 
-      expect(lossy.observations[0].rate).toBe('1.1206');
-      expect(lossy.precisionMode).toBe('number-boundary');
+          return null;
+        } catch (caught) {
+          return caught;
+        }
+      })();
+
+      expect(error).toMatchObject({ code: 'unsupported-precision', details: { precisionMode: 'number-boundary' } });
+    });
+
+    it('the guard looks only at digit counts: dates, trailing zeros and short rates are unaffected', () => {
+      [true, false].forEach((useSourceText) => {
+        expect(parseEcbObservations(at('3.4260000000000000'), { quotes: ['USD'], useSourceText }).observations[0].rate).toBe('3.426');
+        expect(parseEcbObservations(at('0.000012345678901'), { quotes: ['USD'], useSourceText }).observations[0].rate).toBe('0.000012345678901');
+      });
+    });
+
+    it('still reports malformed JSON as invalid-json before the precision guard', () => {
+      expect(code(() => parseEcbObservations('[{"rate":1.12060000000000001', { quotes: ['USD'], useSourceText: false }))).toBe('invalid-json');
     });
 
     it('round-trips every rate in the real series exactly through a decimal string', () => {
