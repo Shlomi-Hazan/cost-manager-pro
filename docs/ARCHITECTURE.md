@@ -229,8 +229,10 @@ report generation                          Settings > "ECB Exchange Rates"
 
 - Availability and causes are derived from the preparation result, never stored.
   Retry is an ordinary regeneration of the same filters.
-- `useRatesChangedSince` compares the accepted-revision count captured with the
-  displayed report to the cache's current count. It changes no figures.
+- Each report records the exact accepted rates it used (`fxStatus.usedObservations`:
+  currency, observation date, rate). `useRatesChangedSince` flags a report only when
+  one of THOSE now has a different accepted value; unrelated currencies or dates,
+  pending proposals and no-rate reports never trigger it. It changes no figures.
 - Operations are exclusive (`getActiveFxOperation`), cancellable, and bounded; no
   startup call, polling or timers. Only `historicalRatesService.js` and
   `fxRatesService.js` import `src/lib/fx/`.

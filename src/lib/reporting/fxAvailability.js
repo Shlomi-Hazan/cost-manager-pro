@@ -71,6 +71,16 @@ function causeOfFailure(code, browserOffline) {
   return failureCause[code] ?? 'invalidResponse';
 }
 
+// The unique (currency, date, rate) triples behind a report's figures, or null
+// when no rate was involved (nothing can go out of date).
+function usedObservations(items) {
+  const seen = new Map();
+
+  items.forEach((item) => (item.usedRates ?? []).forEach((used) => seen.set(`${used.quote}|${used.date}`, used)));
+
+  return seen.size === 0 ? null : [...seen.values()];
+}
+
 function relevantPending(pending, items, targetCurrency) {
   if (!pending?.length) {
     return 0;
@@ -135,6 +145,8 @@ export function buildFxStatus({ prepared, items, summary, targetCurrency, browse
     lastCheckedAt: prepared.fx?.lastCheckedAt ?? null,
     // null when no rate was involved: there is nothing to go out of date.
     revisionCount: prepared.fx?.revisionCount ?? null,
+    // What the report used; the "rates changed" notice compares against these.
+    usedObservations: usedObservations(items),
     loadedNow: requests.some((request) => request.ok)
   };
 }

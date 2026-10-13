@@ -233,6 +233,47 @@ describe('M2B.3 FX reliability UI', () => {
       expect(screen.queryByText(/Exchange rates were updated after this was generated/)).not.toBeInTheDocument();
     });
 
+    it('does not warn when the accepted revision is for another currency or another date than the report used', async () => {
+      addCost({ sum: 120, currency: 'USD' });
+      const cache = seedWithPendingRevision();
+      const rec = (date, quote, rate, at) => cache.recordObservations(clientResult({ observations: [{ date, quote, rate }], quotes: [quote], from: date, to: date, fetchedAt: at }));
+
+      rec('2026-10-09', 'GBP', '0.9', '2026-10-10T08:00:00.000Z');
+      rec('2026-10-09', 'GBP', '0.95', '2026-10-12T08:00:00.000Z');
+      rec('2026-10-02', 'USD', '1.1', '2026-10-10T08:00:00.000Z');
+      rec('2026-10-02', 'USD', '1.15', '2026-10-12T08:00:00.000Z');
+      mockEcbFailure();
+      await generateMonthly(user);
+      await screen.findByText('Total: 96.00 EUR');
+
+      act(() => {
+        expect(applyRevision({ quote: 'GBP', date: '2026-10-09', accepted: '0.9', candidate: '0.95' }).outcome).toBe('applied');
+        expect(applyRevision({ quote: 'USD', date: '2026-10-02', accepted: '1.1', candidate: '1.15' }).outcome).toBe('applied');
+      });
+
+      // Give the event handlers a chance to run, then confirm nothing is shown.
+      await act(async () => {});
+      expect(screen.queryByText(/Exchange rates were updated after this was generated/)).not.toBeInTheDocument();
+      expect(screen.getByText('Total: 96.00 EUR')).toBeInTheDocument();
+    });
+
+    it('warns after a change made in ANOTHER tab to a rate the report used (storage event), without changing the figures', async () => {
+      addCost({ sum: 120, currency: 'USD' });
+      seedWithPendingRevision();
+      mockEcbFailure();
+      await generateMonthly(user);
+      await screen.findByText('Total: 96.00 EUR');
+
+      act(() => {
+        // Another tab (its own cache instance on the same storage) accepts it.
+        createFxCache().applyPendingRevision({ quote: 'USD', date: '2026-10-09', accepted: '1.25', candidate: '1.2' });
+        window.dispatchEvent(new StorageEvent('storage', { key: fxCacheKey }));
+      });
+
+      expect(await screen.findByText(/Exchange rates were updated after this was generated/)).toBeInTheDocument();
+      expect(screen.getByText('Total: 96.00 EUR')).toBeInTheDocument();
+    });
+
     it('does not claim rates changed for a same-currency report', async () => {
       addCost({ sum: 120, currency: 'USD' });
       seedWithPendingRevision();

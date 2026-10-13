@@ -124,7 +124,7 @@ function YearlyBarChartSection() {
   // Editing any filter clears the previous result/errors, so stale output
   // is never shown next to filters that no longer match it.
   // M2B.3: informational only; never rewrites the figures on screen.
-  const ratesChanged = useRatesChangedSince(yearlyResult?.fxStatus?.revisionCount ?? null);
+  const ratesChanged = useRatesChangedSince(yearlyResult?.fxStatus?.usedObservations ?? null);
 
   function handleChange(event) {
     const { name, value } = event.target;

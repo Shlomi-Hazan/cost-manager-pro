@@ -2321,12 +2321,20 @@ Policy B.
    rate" passes the values the user saw; if the proposal changed meanwhile
    (another tab, a newer check) nothing is applied (`conflict`). The replaced value
    stays in the revision log. M2B.1 was extended minimally for this
-   (`evaluateRevisionTarget`, identity-checked `applyPendingRevision`).
+   (`evaluateRevisionTarget`, identity-checked `applyPendingRevision`). "Keep
+   current" is identity-checked the same way (quote, date, accepted, candidate)
+   against the latest stored table INSIDE the cache commit, and removes only the
+   matching proposal. Remaining limit: localStorage has no cross-tab
+   transaction, so a write by another tab in the short window between the
+   commit's final check and its write can still be overwritten; `reconcile()`
+   merges it back and a later decision is re-checked.
 5. **Report snapshots.** A report is the accepted rates at generation; nothing
    recomputes it. If rates are accepted afterwards (here or in another tab) the
    report shows "rates were updated after this was generated" and a "Generate
-   again" button; the figures and exports stay as displayed. A report that used
-   no rate never claims this. No snapshot is persisted.
+   again" button; the figures and exports stay as displayed. "Rates were updated"
+   is decided from the exact accepted rates the report used (currency,
+   observation date, rate), so an unrelated currency or date, a pending
+   proposal, or a report that used no rate never triggers it. No snapshot is persisted.
 6. **Transparency.** The ECB note now also states when rates were last checked,
    whether they were already saved or loaded for this report, and provisional
    status; proposed changes and unsaved rates get short notes. The same

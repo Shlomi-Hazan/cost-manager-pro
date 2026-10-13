@@ -243,20 +243,36 @@ export function applyRevision(target, { cache = getSharedFxCache() } = {}) {
 }
 
 /**
- * The user keeps the accepted value and dismisses the proposal. The identity
- * is checked the same way, so a stale button cannot dismiss a newer proposal.
+ * The user keeps the accepted value and dismisses ONE proposal. The decision
+ * is checked against the latest stored table inside the cache's own commit
+ * (quote, date, accepted and candidate), so a stale button can neither dismiss
+ * a newer proposal nor a different one.
  * @returns {{outcome: string, persisted: boolean}} outcome: 'kept' | 'not-found' | 'conflict'
  */
 export function keepRevision(target, { cache = getSharedFxCache() } = {}) {
-  const current = cache.listPendingRevisions().find((revision) => revision.quote === target.quote && revision.date === target.date && revision.candidate === target.candidate && revision.accepted === target.accepted);
+  const { outcome, persisted } = cache.discardPendingRevision({ quote: target.quote, date: target.date, accepted: target.accepted, candidate: target.candidate });
 
-  if (!current) {
-    const any = cache.listPendingRevisions().some((revision) => revision.quote === target.quote && revision.date === target.date);
+  return { outcome: outcome === 'discarded' ? 'kept' : outcome, persisted };
+}
 
-    return { outcome: any ? 'conflict' : 'not-found', persisted: true };
+/**
+ * Did any accepted rate that a report USED change since it was generated?
+ * Compares each (currency, observation date, rate) the report used with what
+ * is accepted now. A pending proposal, an unrelated currency or date, or a
+ * missing observation never counts. Read-only.
+ * @param {{quote: string, date: string, rate: string}[]|null} used
+ * @returns {boolean}
+ */
+export function getChangedUsedRates(used, { cache = getSharedFxCache() } = {}) {
+  if (!Array.isArray(used) || used.length === 0) {
+    return false;
   }
 
-  const { persisted } = cache.discardPendingRevision({ quote: target.quote, date: target.date });
+  const { observations } = cache.inspect().table;
 
-  return { outcome: 'kept', persisted };
+  return used.some(({ quote, date, rate }) => {
+    const current = observations[quote]?.[date]?.[0];
+
+    return current !== undefined && current !== rate;
+  });
 }

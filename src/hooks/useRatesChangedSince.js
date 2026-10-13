@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
-import { fxCacheKey, fxChangedEvent, getFxOverview } from '../services/fxRatesService.js';
+import { fxCacheKey, fxChangedEvent, getChangedUsedRates } from '../services/fxRatesService.js';
 
 /*
- * M2B.3: true when accepted rates changed AFTER a report was generated (a rate
- * revision was accepted here or in another tab). It only reports that fact: it
- * never recomputes or edits the report; the user regenerates it explicitly.
- * Nothing runs until such an event, and nothing polls.
- * @param {number|null} revisionCountAtGeneration - fxStatus.revisionCount of the
- *   displayed snapshot, or null when there is no snapshot.
+ * M2B.3: true when a rate THIS report used now has a different accepted value
+ * (a revision was accepted here or in another tab). Unrelated currencies or
+ * dates, pending proposals, and reports that used no rate never trigger it. It
+ * only reports that fact: it never recomputes or edits the report; the user
+ * regenerates it explicitly. Nothing runs until such an event, and nothing polls.
+ * @param {{quote: string, date: string, rate: string}[]|null} used - fxStatus.usedObservations
+ *   of the displayed report, or null when there is no snapshot or no rate was used.
  */
-export function useRatesChangedSince(revisionCountAtGeneration) {
-  // The newest accepted-revision count seen in an event. "Changed" is derived
-  // by comparing it with the snapshot's own count, so a new report simply
-  // starts a new comparison with no reset needed.
-  const [observedCount, setObservedCount] = useState(null);
-  const hasSnapshot = revisionCountAtGeneration !== null && revisionCountAtGeneration !== undefined;
+export function useRatesChangedSince(used) {
+  // The result is remembered together with the snapshot it was computed for, so
+  // a newly generated report starts clean without any reset.
+  const [result, setResult] = useState({ used: null, changed: false });
+  const hasSnapshot = Array.isArray(used) && used.length > 0;
 
   useEffect(() => {
     if (!hasSnapshot) {
@@ -23,7 +23,7 @@ export function useRatesChangedSince(revisionCountAtGeneration) {
 
     function check() {
       try {
-        setObservedCount(getFxOverview().revisionCount);
+        setResult({ used, changed: getChangedUsedRates(used) });
       } catch {
         // An unreadable cache is not evidence that rates changed.
       }
@@ -42,7 +42,7 @@ export function useRatesChangedSince(revisionCountAtGeneration) {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener(fxChangedEvent, check);
     };
-  }, [hasSnapshot]);
+  }, [hasSnapshot, used]);
 
-  return hasSnapshot && observedCount !== null && observedCount !== revisionCountAtGeneration;
+  return hasSnapshot && result.used === used && result.changed;
 }

@@ -727,12 +727,25 @@ export function getLastCheckedAt(table, quotes = null) {
 
 /**
  * Keeps the accepted value and drops a pending revision.
+ * @param {object} table
+ * @param {{quote: string, date: string, accepted?: string, candidate?: string}} target
+ *   With `accepted` and/or `candidate`, only the proposal that matches that
+ *   identity is dropped (a newer proposal for the same date stays). Without
+ *   them every proposal for that observation is dropped (legacy behaviour).
  * @returns {object} A new table.
  */
-export function discardPendingRevision(table, { quote, date }) {
+export function discardPendingRevision(table, { quote, date, accepted, candidate }) {
   const next = structuredClone(table);
 
-  next.pendingRevisions = next.pendingRevisions.filter((entry) => !(entry.quote === quote && entry.date === date));
+  next.pendingRevisions = next.pendingRevisions.filter(
+    (entry) =>
+      !(
+        entry.quote === quote &&
+        entry.date === date &&
+        (candidate === undefined || entry.candidate === candidate) &&
+        (accepted === undefined || entry.accepted === accepted)
+      )
+  );
 
   return next;
 }
