@@ -15,7 +15,7 @@ data in your own browser.
 > expense's date** (delivered through the Frankfurter API). They are
 > informational and not necessarily the rate you were charged. If a rate cannot
 > be loaded, the total is shown as unavailable rather than guessed. This work
-> (M2B.2) is in review. See [Financial accuracy](#financial-accuracy).
+> (M2B.2) is live; reliability controls (M2B.3) are in review. See [Financial accuracy](#financial-accuracy).
 
 ## What it does today
 
@@ -50,7 +50,8 @@ These are the main ones; details are in
 - **Exchange rates are ECB reference rates, not transaction rates.** They need
   a network connection the first time a date is converted (then they are
   cached on the device). Offline with missing rates, a total is "Unavailable".
-  Stale-rate warnings and refresh controls are planned (M2B.3).
+  Settings lets you check for new rates and for values the ECB now reports
+  differently, and approve each change yourself (M2B.3, in review).
 - English only, left-to-right only. English and Hebrew (RTL) are planned
   for v1.
 - Mobile layout is limited: navigation and the expense list don't fit
@@ -81,7 +82,10 @@ These are the main ones; details are in
   exact decimals with one rounding at display (ADR-047, ADR-050). Reports,
   charts and exports agree. No total is ever partial.
 - **Legacy source:** a custom exchange-rate URL saved in Settings is kept but
-  not used by reports. See the [roadmap](docs/ROADMAP.md) (M2B.3 is next).
+  not used by reports.
+- **Reliability (M2B.3, in review):** a report is a snapshot; accepted rate
+  changes never alter it until you generate it again. Unavailable totals say
+  why and offer "Try again" only when a retry can help. See ADR-051.
 
 ## Tech stack
 

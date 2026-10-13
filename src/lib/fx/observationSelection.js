@@ -289,7 +289,11 @@ export function createObservationIndex(table) {
           (date) => date > expenseDate && quotes.every((quote) => table.observations[quote][date] !== undefined)
         )
       : false;
-    const isFinal = candidate === expenseDate || laterCommon;
+    // The provider's own newest observation date (from metadata it reported)
+    // proves earlier publications are complete too, when it is after the
+    // expense date. Without such metadata nothing is assumed: provisional.
+    const providerNewest = table.provider_meta?.endDate ?? null;
+    const isFinal = candidate === expenseDate || laterCommon || (providerNewest !== null && providerNewest > expenseDate);
 
     return result({
       ...base,

@@ -96,6 +96,9 @@ export function createHistoricalConverter({ index, targetCurrency, referenceDate
         identity: false,
         amount: convertDecimalAmount(cost.sum, selection.rates[cost.currency], selection.rates[targetCurrency]),
         observationDate: selection.selectedDate,
+        // The exact accepted values behind this amount, so a report can later
+        // tell whether a rate IT used changed (and ignore unrelated changes).
+        usedRates: selection.provenance.map(({ quote, rate, observationDate }) => ({ quote, date: observationDate, rate })),
         finality: selection.finality,
         fetchedAt: earliest(selection.provenance.map((entry) => entry.fetchedAt).filter(Boolean))
       };

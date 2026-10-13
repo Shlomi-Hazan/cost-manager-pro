@@ -212,6 +212,33 @@ screen (Monthly / Yearly / Charts / Bar)
   cache failure cannot touch an expense.
 - Only `historicalRatesService.js` imports `src/lib/fx/` (guarded by a test).
 
+## 5d. FX reliability and revisions (M2B.3)
+
+Built on 5c without changing the calculation (ADR-051).
+
+```text
+report generation                          Settings > "ECB Exchange Rates"
+  prepareHistoricalRates()                   fxRatesService (explicit, one at a time)
+    -> prepared.requests / .fx snapshot        checkForNewRates          metadata + latest
+  buildFxStatus() (pure, derived)              checkSavedRatesForRevisions   <= 4 requests
+    state, causes, flags                       applyRevision / keepRevision  identity-checked
+  conversionDisclosure (wording)             -> fxCache (pending revisions, revision log)
+  ConversionNotices (UI) -> "Try again"
+  useRatesChangedSince()  <- storage / fx-changed events (informational only)
+```
+
+- Availability and causes are derived from the preparation result, never stored.
+  Retry is an ordinary regeneration of the same filters.
+- Each report records the exact accepted rates it used (`fxStatus.usedObservations`:
+  currency, observation date, rate). `useRatesChangedSince` flags a report only when
+  one of THOSE now has a different accepted value; unrelated currencies or dates,
+  pending proposals and no-rate reports never trigger it. It changes no figures.
+- Operations are exclusive (`getActiveFxOperation`), cancellable, and bounded; no
+  startup call, polling or timers. Only `historicalRatesService.js` and
+  `fxRatesService.js` import `src/lib/fx/`.
+- Finality can also come from the provider's saved metadata (`provider_meta.endDate`)
+  in `observationSelection.js`; without it the result stays provisional.
+
 ## 6. Navigation and state
 
 - `App.jsx` keeps `activePageId` in React state. There are no URLs, so a

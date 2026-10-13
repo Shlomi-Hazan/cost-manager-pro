@@ -35,6 +35,7 @@ import { createObservationIndex, selectObservationSet } from './observationSelec
 import {
   applyPendingRevision as applyRevisionToTable,
   createEmptyTable,
+  evaluateRevisionTarget,
   discardPendingRevision as discardRevisionFromTable,
   enforceSizeLimit,
   mergeTables,
@@ -318,19 +319,38 @@ export function createFxCache(options = {}) {
     /**
      * Explicitly accepts a detected revision. Nothing recalculates by itself:
      * reports keep their accepted values until the application chooses to
-     * apply this and recompute.
+     * apply this and recompute. Pass `accepted` and `candidate` (the values the
+     * user was shown) so a stale decision is refused instead of applied.
+     * @returns {{persisted: boolean, reason: string|null, outcome: string}}
+     *   outcome: 'applied' | 'not-found' | 'conflict'.
      */
     applyPendingRevision(target) {
-      const committed = commit((table) => ({ table: applyRevisionToTable(table, target) }));
+      const committed = commit((table) => {
+        const { outcome } = evaluateRevisionTarget(table, target);
 
-      return { persisted: committed.persisted, reason: committed.reason };
+        return { table: outcome === 'applied' ? applyRevisionToTable(table, target) : table, info: { outcome } };
+      });
+
+      return { persisted: committed.persisted, reason: committed.reason, outcome: committed.info.outcome };
     },
 
-    /** Keeps the accepted value and dismisses a detected revision. */
+    /**
+     * Keeps the accepted value and dismisses ONE proposal. The identity
+     * (quote, date, and, when given, accepted and candidate) is checked against
+     * the latest stored table INSIDE the commit, so a stale decision cannot
+     * remove a newer proposal. (localStorage still has no cross-tab
+     * transaction: see the concurrency notes at the top of this file.)
+     * @returns {{persisted: boolean, reason: string|null, outcome: string}}
+     *   outcome: 'discarded' | 'not-found' | 'conflict'.
+     */
     discardPendingRevision(target) {
-      const committed = commit((table) => ({ table: discardRevisionFromTable(table, target) }));
+      const committed = commit((table) => {
+        const { outcome } = evaluateRevisionTarget(table, target);
 
-      return { persisted: committed.persisted, reason: committed.reason };
+        return { table: outcome === 'applied' ? discardRevisionFromTable(table, target) : table, info: { outcome: outcome === 'applied' ? 'discarded' : outcome } };
+      });
+
+      return { persisted: committed.persisted, reason: committed.reason, outcome: committed.info.outcome };
     },
 
     /**

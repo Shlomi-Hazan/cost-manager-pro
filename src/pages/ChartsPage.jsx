@@ -31,6 +31,7 @@ import {
 // Shared UI components, then local constants/db/services/utils below.
 import LoadingButtonLabel from '../components/common/LoadingButtonLabel.jsx';
 import ConversionNotices from '../components/common/ConversionNotices.jsx';
+import { useRatesChangedSince } from '../hooks/useRatesChangedSince.js';
 import PageHeader from '../components/common/PageHeader.jsx';
 import SectionCard from '../components/common/SectionCard.jsx';
 import { supportedCurrencies } from '../constants/currencies.js';
@@ -208,6 +209,9 @@ function ChartsPage() {
 
   // Editing any filter clears the previous result/errors, so stale output
   // is never shown next to filters that no longer match it.
+  // M2B.3: informational only; never rewrites the figures on screen.
+  const ratesChanged = useRatesChangedSince(chartResult?.report?.fxStatus?.usedObservations ?? null);
+
   function handleChange(event) {
     const { name, value } = event.target;
 
@@ -226,6 +230,11 @@ function ChartsPage() {
   }
 
   // Validates, then fetches rates and builds the category aggregation.
+  // An explicit regeneration with the same filters ("Try again" / "Generate again").
+  function handleRetry() {
+    return handleSubmit({ preventDefault() {} });
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -479,7 +488,11 @@ function ChartsPage() {
             {/* M2B.2: ECB provenance and the explicit incomplete notice. */}
             <ConversionNotices
               incompleteNotice={chartResult.incompleteNotice}
+              isBusy={isLoading}
+              onRetry={handleRetry}
               rateDisclosure={chartResult.rateDisclosure}
+              ratesChanged={ratesChanged}
+              statusNotes={chartResult.report.statusNotes ?? []}
             />
 
             {exportErrorMessage ? (

@@ -11,7 +11,7 @@ work starts. **Approving one milestone never approves the next one**
 | M1 | Reliability, Storage & Deployment | **Done** (PR #2, merged 2026-10-09; deployed to Vercel) |
 | Pre-M2 hotfix | Disclose demonstration exchange rates | **Done** (PR #3, merged) |
 | M2A | Financial Accuracy: money foundation | **Done**: M2A.2 (PR #4) and M2A.3 (PR #5) merged; M2A.3 passed seven production smoke checks |
-| M2B | Financial Accuracy: currency engine and live rates | **In progress**: M2B.1 merged (PR #6) and production-tested; M2B.2 (dated ECB conversion) in a draft PR; M2B.3 not started |
+| M2B | Financial Accuracy: currency engine and live rates | **In progress**: M2B.1 (PR #6) and M2B.2 (PR #7) merged and production-tested; M2B.3 (FX reliability) in a draft PR, not accepted |
 | M3 | Design System & App Shell | Not started |
 | M4 | Expense Management Experience | Not started |
 | M5 | Personal Overview Dashboard | Not started |
@@ -132,13 +132,19 @@ Requirement IDs (`EXP-*`, `DATA-*`, and so on) are defined in
   - **M2B.1 — ECB provider and historical cache infrastructure (done, merged as
     PR #6; six production smoke checks passed):** client, parser, versioned
     cache, coverage tracking, and date selection under `src/lib/fx/`.
-  - **M2B.2 — historical conversion integration (in progress, draft PR, not
-    merged):** reports, charts and exports convert each expense with the ECB
-    rate for its own date through one pathway; totals are never partial;
-    the demo-rate disclosure is replaced by ECB provenance for converted output;
-    the legacy custom source is kept but inactive. Deferred to M2B.3: offline
-    and stale-rate UX, refresh controls, pending-revision review UI.
-  - **M2B.3 — user-facing states and reliability:** not started.
+  - **M2B.2 — historical conversion integration (done, merged as PR #7; the
+    product owner passed 13 Production acceptance checks):** reports, charts and
+    exports convert each expense with the ECB rate for its own date through one
+    pathway; totals are never partial; ECB provenance replaces the demo note; the
+    legacy custom source is kept but inactive.
+  - **M2B.3 — FX reliability and transparency (in progress, draft PR, not
+    accepted; ADR-051):** a small availability model with plain-language causes
+    and "Try again" only when it can help; source-aware final/provisional
+    freshness; explicit Settings actions to check for new rates and to check saved
+    rates for changes; one-by-one review and approval of proposed rate changes;
+    report snapshots that never change under the user ("rates were updated,
+    generate again"). Follow-ups deliberately left out: persisted snapshots,
+    background checks, a holiday calendar, localization (M3).
 
 - **Goal:** Every amount the app shows is correct and clearly formatted.
 - **Expected scope:**
