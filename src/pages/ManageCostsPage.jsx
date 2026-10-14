@@ -28,7 +28,7 @@ import { getStorageErrorMessage } from '../utils/storageErrorMessage.js';
 
 // M3.1A: only this many rows are in the page at once (all expenses stay
 // reachable through the page controls). 50 rows is about 900 DOM nodes.
-export const costsPageSize = 50;
+export const costsPageSize = 25;
 
 /*
  * TEAM EXTENSION (X-002/X-003): lets the user view, edit, and delete
