@@ -1,6 +1,6 @@
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { costsDatabase, costsDatabaseName, costsDatabaseVersion } from '../lib/costsDatabase.js';
@@ -38,16 +38,22 @@ function seed(count) {
 const stored = () => JSON.parse(localStorage.getItem(storageKey)).costs;
 const rows = () => screen.getAllByRole('row').slice(1);
 const descriptions = () => rows().map((row) => within(row).getAllByRole('cell')[2].textContent);
-const renderPage = () => render(<ThemeProvider theme={theme}><CssBaseline /><ManageCostsPage /></ThemeProvider>);
+const renderPage = (props = {}) => render(<ThemeProvider theme={theme}><CssBaseline /><ManageCostsPage {...props} /></ThemeProvider>);
+// Small pages exercise the paging logic cheaply. Tests about the REAL page size
+// (the DOM bound) use the default.
+const small = 3;
 const nav = () => screen.getByRole('navigation', { name: 'Saved costs pages' });
 const pageButton = (name) => within(nav()).getByRole('button', { name });
+// Paging clicks use fireEvent: they test the page logic, and userEvent's pointer
+// simulation costs real time on a small CI machine for no extra coverage.
+const go = (name) => fireEvent.click(pageButton(name));
 
 describe('Manage Costs paging', () => {
   let user;
 
   beforeEach(() => {
     localStorage.clear();
-    user = userEvent.setup();
+    user = userEvent.setup({ delay: null });
   });
 
   afterEach(() => {
@@ -68,26 +74,26 @@ describe('Manage Costs paging', () => {
   });
 
   it('has no page controls when everything fits on one page, and two pages one row past it', () => {
-    seed(costsPageSize);
-    const { unmount } = renderPage();
+    seed(small);
+    const { unmount } = renderPage({ pageSize: small });
 
     expect(screen.queryByRole('navigation', { name: 'Saved costs pages' })).not.toBeInTheDocument();
-    expect(rows()).toHaveLength(costsPageSize);
+    expect(rows()).toHaveLength(small);
     unmount();
-    seed(costsPageSize + 1);
-    renderPage();
-    expect(nav()).toHaveTextContent(`Showing 1–${costsPageSize} of ${costsPageSize + 1} · Page 1 of 2`);
+    seed(small + 1);
+    renderPage({ pageSize: small });
+    expect(nav()).toHaveTextContent(`Showing 1–${small} of ${small + 1} · Page 1 of 2`);
   });
 
   it('reaches every expense, in stored order, with exact page boundaries', async () => {
-    const total = costsPageSize * 3 + 7;
+    const total = small * 3 + 1;
 
     seed(total);
-    renderPage();
+    renderPage({ pageSize: small });
     const seen = [...descriptions()];
 
     for (let page = 2; page <= 4; page += 1) {
-      await user.click(pageButton('Next page'));
+      go('Next page');
       seen.push(...descriptions());
       expect(nav()).toHaveTextContent(`Page ${page} of 4`);
     }
@@ -95,55 +101,53 @@ describe('Manage Costs paging', () => {
     expect(seen).toEqual(Array.from({ length: total }, (_value, index) => `Item ${index}`));
     expect(pageButton('Next page')).toBeDisabled();
     expect(pageButton('Last page')).toBeDisabled();
-    expect(rows()).toHaveLength(7);
-    expect(nav()).toHaveTextContent(`Showing ${costsPageSize * 3 + 1}–${total} of ${total}`);
+    expect(rows()).toHaveLength(1);
+    expect(nav()).toHaveTextContent(`Showing ${small * 3 + 1}–${total} of ${total}`);
   });
 
   it('First, Previous and Last move to the right pages and disable at the ends', async () => {
-    seed(costsPageSize * 5);
-    renderPage();
+    seed(small * 3);
+    renderPage({ pageSize: small });
 
     expect(pageButton('First page')).toBeDisabled();
     expect(pageButton('Previous page')).toBeDisabled();
-    await user.click(pageButton('Last page'));
-    expect(descriptions()[0]).toBe(`Item ${costsPageSize * 4}`);
-    await user.click(pageButton('Previous page'));
-    expect(descriptions()[0]).toBe(`Item ${costsPageSize * 3}`);
-    await user.click(pageButton('First page'));
+    go('Last page');
+    expect(descriptions()[0]).toBe(`Item ${small * 2}`);
+    go('Previous page');
+    expect(descriptions()[0]).toBe(`Item ${small}`);
+    go('First page');
     expect(descriptions()[0]).toBe('Item 0');
   });
 
   it('moves focus to the page status after a page change, so focus is never lost on a disabled button', async () => {
-    seed(costsPageSize * 2);
-    renderPage();
-    await user.click(pageButton('Last page'));
+    seed(small * 2);
+    renderPage({ pageSize: small });
+    go('Last page');
 
     expect(within(nav()).getByRole('status')).toHaveFocus();
   });
 
   it('edits the right record on a later page and stays on that page', async () => {
-    seed(costsPageSize * 3);
-    renderPage();
-    await user.click(pageButton('Next page'));
-    await user.click(pageButton('Next page'));
-    const target = costsPageSize * 2 + 4;
-    const row = rows()[4];
+    seed(small * 2 + 1);
+    renderPage({ pageSize: small });
+    go('Next page');
+    const target = small + 1;
+    const row = rows()[1];
 
-    expect(descriptions()[4]).toBe(`Item ${target}`);
+    expect(descriptions()[1]).toBe(`Item ${target}`);
     await user.click(within(row).getByRole('button', { name: 'Edit' }));
     const dialog = screen.getByRole('dialog', { name: 'Edit Cost' });
     const description = within(dialog).getByLabelText('Description');
 
-    await user.clear(description);
-    await user.type(description, 'Edited on page three');
+    fireEvent.change(description, { target: { value: 'Edited on page three' } });
     await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
     expect(await screen.findByText('Cost updated successfully.')).toBeInTheDocument();
-    expect(nav()).toHaveTextContent('Page 3 of 3');
-    expect(descriptions()[4]).toBe('Edited on page three');
+    expect(nav()).toHaveTextContent('Page 2 of 3');
+    expect(descriptions()[1]).toBe('Edited on page three');
     const after = stored();
 
-    expect(after).toHaveLength(costsPageSize * 3);
+    expect(after).toHaveLength(small * 2 + 1);
     expect(after[target]).toMatchObject({ id: `id-${target}`, description: 'Edited on page three', sum: 10 + target });
     // No other record changed.
     after.forEach((cost, index) => {
@@ -154,9 +158,9 @@ describe('Manage Costs paging', () => {
   });
 
   it('deletes the right record from a middle page and keeps the page', async () => {
-    seed(costsPageSize * 3);
-    renderPage();
-    await user.click(pageButton('Next page'));
+    seed(small * 3);
+    renderPage({ pageSize: small });
+    go('Next page');
     const row = rows()[2];
 
     await user.click(within(row).getByRole('button', { name: 'Delete' }));
@@ -164,48 +168,48 @@ describe('Manage Costs paging', () => {
 
     expect(await screen.findByText('Cost deleted successfully.')).toBeInTheDocument();
     expect(nav()).toHaveTextContent('Page 2 of 3');
-    expect(stored().map((cost) => cost.id)).not.toContain(`id-${costsPageSize + 2}`);
-    expect(stored()).toHaveLength(costsPageSize * 3 - 1);
+    expect(stored().map((cost) => cost.id)).not.toContain(`id-${small + 2}`);
+    expect(stored()).toHaveLength(small * 3 - 1);
     // Rows after the deleted one shift up by one, in order.
-    expect(descriptions()[2]).toBe(`Item ${costsPageSize + 3}`);
+    expect(descriptions()[2]).toBe(`Item ${small + 3}`);
   });
 
   it('after deleting the only row of the last page, lands on the new last page (never an empty one)', async () => {
-    seed(costsPageSize + 1);
-    renderPage();
-    await user.click(pageButton('Next page'));
+    seed(small + 1);
+    renderPage({ pageSize: small });
+    go('Next page');
     expect(rows()).toHaveLength(1);
 
     await user.click(within(rows()[0]).getByRole('button', { name: 'Delete' }));
     await user.click(within(screen.getByRole('dialog', { name: 'Delete cost?' })).getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('Cost deleted successfully.')).toBeInTheDocument();
-    expect(rows()).toHaveLength(costsPageSize);
+    expect(rows()).toHaveLength(small);
     // Everything now fits on one page: the controls go away.
     expect(screen.queryByRole('navigation', { name: 'Saved costs pages' })).not.toBeInTheDocument();
   });
 
   it('keeps the page valid when another tab shrinks the list (storage event)', async () => {
-    seed(costsPageSize * 3);
-    renderPage();
-    await user.click(pageButton('Last page'));
+    seed(small * 3);
+    renderPage({ pageSize: small });
+    go('Last page');
 
     act(() => {
-      seed(costsPageSize + 10);
+      seed(small + 2);
       window.dispatchEvent(new StorageEvent('storage', { key: storageKey }));
     });
 
     expect(nav()).toHaveTextContent('Page 2 of 2');
-    expect(rows()).toHaveLength(10);
+    expect(rows()).toHaveLength(2);
   });
 
   it('shows every field of a row on any page (date, time, description, category, sum, currency)', async () => {
-    const costs = seed(costsPageSize + 3);
+    const costs = seed(small + 3);
 
-    renderPage();
-    await user.click(pageButton('Next page'));
+    renderPage({ pageSize: small });
+    go('Next page');
     const cells = within(rows()[1]).getAllByRole('cell').map((cell) => cell.textContent);
-    const expected = costs[costsPageSize + 1];
+    const expected = costs[small + 1];
 
     expect(cells[2]).toBe(expected.description);
     expect(cells[3]).toBe(expected.category);
@@ -223,7 +227,7 @@ describe('typing in the edit form does not re-render the table', () => {
 
   it('with 2,000 expenses, ten keystrokes cause no row re-render (a row renders by calling formatDateForDisplay)', async () => {
     seed(2000);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     renderPage();
     // Spy BEFORE opening the dialog: opening it re-renders the page, and the
@@ -241,32 +245,29 @@ describe('typing in the edit form does not re-render the table', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('negative control: the same spy DOES see rows render when the visible rows change (paging)', async () => {
-    seed(60);
-    const user = userEvent.setup();
-
-    renderPage();
+  it('negative control: the same spy DOES see rows render when the visible rows change (paging)', () => {
+    seed(2 * small);
+    renderPage({ pageSize: small });
     const spy = vi.spyOn(dateTime, 'formatDateForDisplay');
 
-    await user.click(pageButton('Next page'));
-    // 25 new rows were rendered, so the spy can detect row renders.
-    expect(spy.mock.calls.length).toBeGreaterThanOrEqual(costsPageSize);
+    go('Next page');
+    // New rows were rendered, so the spy can detect row renders.
+    expect(spy.mock.calls.length).toBeGreaterThanOrEqual(small);
   });
 });
 
 describe('legacy unchanged', () => {
-  it('still reads through db.getAllCosts (the stored list is not altered by viewing or paging)', async () => {
+  it('still reads through db.getAllCosts (the stored list is not altered by viewing or paging)', () => {
     localStorage.clear();
-    seed(costsPageSize * 2);
+    seed(small * 2);
     const before = localStorage.getItem(storageKey);
-    const user = userEvent.setup();
 
-    renderPage();
-    await user.click(pageButton('Next page'));
-    await user.click(pageButton('First page'));
+    renderPage({ pageSize: small });
+    go('Next page');
+    go('First page');
 
     expect(localStorage.getItem(storageKey)).toBe(before);
-    expect(costsDatabase.getAllCosts()).toHaveLength(costsPageSize * 2);
+    expect(costsDatabase.getAllCosts()).toHaveLength(small * 2);
     localStorage.clear();
   });
 });

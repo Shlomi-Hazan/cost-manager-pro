@@ -53,7 +53,9 @@ function loadCostList() {
   }
 }
 
-function ManageCostsPage() {
+// `pageSize` is a seam for tests (small pages exercise paging cheaply); the app
+// always uses costsPageSize.
+function ManageCostsPage({ pageSize = costsPageSize }) {
   // Saved-costs list, a page-level feedback banner, and separate
   // edit/delete dialog state (each dialog has its own draft values,
   // errors, and feedback so the two flows never interfere with each other).
@@ -153,9 +155,9 @@ function ManageCostsPage() {
   // The page index is clamped, so deleting the last row of the last page (or
   // another tab shrinking the list) lands on the new last page, never on an
   // empty one.
-  const pageCount = Math.max(1, Math.ceil(costs.length / costsPageSize));
+  const pageCount = Math.max(1, Math.ceil(costs.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
-  const visibleCosts = costs.slice(currentPage * costsPageSize, (currentPage + 1) * costsPageSize);
+  const visibleCosts = costs.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
   return (
     <Stack spacing={3}>
@@ -197,7 +199,7 @@ function ManageCostsPage() {
             </Table>
           </TableContainer>
           {pageCount > 1 ? (
-            <CostsPagination onPageChange={setPage} page={currentPage} pageCount={pageCount} pageSize={costsPageSize} total={costs.length} />
+            <CostsPagination onPageChange={setPage} page={currentPage} pageCount={pageCount} pageSize={pageSize} total={costs.length} />
           ) : null}
         </SectionCard>
       )}
