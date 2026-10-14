@@ -244,6 +244,11 @@ report generation                          Settings > "ECB Exchange Rates"
 - `App.jsx` keeps `activePageId` in React state. There are no URLs, so a
   refresh always returns to the Dashboard.
 - Each page keeps its own form, result, and error state.
+- **Manage Costs (M3.1A):** the table shows one page of 25 rows (all expenses stay
+  reachable through First/Previous/Next/Last controls; the order is the stored
+  order). The edit form's state lives in `EditCostDialog`, not in the page, and
+  rows are memoized with stable callbacks, so typing never re-renders the table.
+  Measured before/after in the PR (2,000 expenses, 4x CPU throttle).
 
 ## 7. Testing
 
